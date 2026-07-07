@@ -1,3 +1,4 @@
+import { Badge, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useState } from "react";
 import type { Assignee, Category, TaskDraft, TodayTask } from "../domain/types";
 import { TaskForm } from "./TaskForm";
@@ -30,38 +31,42 @@ export function TodayTaskCard({ item, categories, assignees, onComplete, onPostp
     );
   }
 
-  const statusText = item.isOverdue ? `Zaległe od ${item.scheduledDate}` : "Dzisiaj";
+  const statusText = item.isOverdue ? `Zalegle od ${item.scheduledDate}` : "Dzisiaj";
   const completionText = item.lastCompletedDate ? `Ostatnio wykonane: ${item.lastCompletedDate}` : "Jeszcze nie wykonane";
 
   return (
-    <article className={item.isOverdue ? "task-card is-overdue" : "task-card"}>
-      <div className="task-card-header">
-        <div>
-          <h2 className="task-title">{item.task.title}</h2>
-        </div>
-        <span className={item.isOverdue ? "status-pill is-overdue" : "status-pill"}>{statusText}</span>
-      </div>
+    <Card component="article" withBorder radius="md" shadow="xs" p="lg">
+      <Stack gap="md">
+        <Group justify="space-between" align="flex-start" gap="md">
+          <Title order={2}>{item.task.title}</Title>
+          <Badge color={item.isOverdue ? "orange" : "blue"} variant="light">
+            {statusText}
+          </Badge>
+        </Group>
 
-      <div className="task-meta" aria-label="Szczegóły zadania">
-        <span className="meta-pill">{item.category.name}</span>
-        <span className="meta-pill">{item.assignee.name}</span>
-        <span className="meta-pill">{completionText}</span>
-      </div>
+        <Group aria-label="Szczegoly zadania" gap="xs">
+          <Badge variant="default">{item.category.name}</Badge>
+          <Badge variant="default">{item.assignee.name}</Badge>
+          <Text c="dimmed" size="sm">
+            {completionText}
+          </Text>
+        </Group>
 
-      <div className="task-actions">
-        <button className="complete-button" type="button" onClick={() => onComplete(item.task.id, item.scheduledDate)}>
-          Wykonane
-        </button>
-        <button className="secondary-button" type="button" onClick={() => onPostpone(item.task.id)}>
-          Odłóż na jutro
-        </button>
-        <button className="secondary-button" type="button" onClick={() => setIsEditing(true)}>
-          Edytuj
-        </button>
-        <button className="danger-button" type="button" onClick={() => onDeactivate(item.task.id)}>
-          Dezaktywuj
-        </button>
-      </div>
-    </article>
+        <Group gap="xs">
+          <Button type="button" color="green" variant="light" onClick={() => onComplete(item.task.id, item.scheduledDate)}>
+            Wykonane
+          </Button>
+          <Button type="button" variant="default" onClick={() => onPostpone(item.task.id)}>
+            Odloz na jutro
+          </Button>
+          <Button type="button" variant="default" onClick={() => setIsEditing(true)}>
+            Edytuj
+          </Button>
+          <Button type="button" color="red" variant="light" onClick={() => onDeactivate(item.task.id)}>
+            Dezaktywuj
+          </Button>
+        </Group>
+      </Stack>
+    </Card>
   );
 }

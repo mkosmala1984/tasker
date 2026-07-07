@@ -1,3 +1,4 @@
+import { Button, Paper, Stack, TextInput, Title } from "@mantine/core";
 import { useState } from "react";
 import type { Assignee, Category, TaskDraft } from "../domain/types";
 
@@ -18,8 +19,11 @@ export function QuickAddForm({ categories, assignees, today, onSubmit }: Props) 
   const [form, setForm] = useState(emptyForm);
 
   return (
-    <form
-      className="quick-add"
+    <Paper
+      component="form"
+      withBorder
+      p="lg"
+      radius="md"
       aria-label="Szybkie dodanie"
       onSubmit={(event) => {
         event.preventDefault();
@@ -32,53 +36,47 @@ export function QuickAddForm({ categories, assignees, today, onSubmit }: Props) 
         setForm(emptyForm);
       }}
     >
-      <h2>Szybkie dodanie</h2>
+      <Stack gap="sm">
+        <Title order={2}>Szybkie dodanie</Title>
 
-      <label className="field">
-        <span>Nazwa zadania</span>
-        <input
+        <TextInput
           id="quick-add-title"
+          label="Nazwa zadania"
           required
           value={form.title}
-          onChange={(event) => setForm({ ...form, title: event.target.value })}
+          onChange={(event) => setForm({ ...form, title: event.currentTarget.value })}
         />
-      </label>
 
-      <label className="field">
-        <span>Kategoria</span>
-        <input
+        <TextInput
+          label="Kategoria"
           required
           list="quick-add-categories"
           value={form.categoryName}
-          onChange={(event) => setForm({ ...form, categoryName: event.target.value })}
+          onChange={(event) => setForm({ ...form, categoryName: event.currentTarget.value })}
         />
         <datalist id="quick-add-categories">
           {categories.map((category) => (
             <option key={category.id} value={category.name} />
           ))}
         </datalist>
-      </label>
 
-      <label className="field">
-        <span>Osoba</span>
-        <input
+        <TextInput
+          label="Osoba"
           required
           list="quick-add-assignees"
           value={form.assigneeName}
-          onChange={(event) => setForm({ ...form, assigneeName: event.target.value })}
+          onChange={(event) => setForm({ ...form, assigneeName: event.currentTarget.value })}
         />
         <datalist id="quick-add-assignees">
           {assignees.map((assignee) => (
             <option key={assignee.id} value={assignee.name} />
           ))}
         </datalist>
-      </label>
 
-      <div className="form-actions">
-        <button className="blue-button" type="submit">
+        <Button type="submit" w="fit-content">
           Zapisz
-        </button>
-      </div>
-    </form>
+        </Button>
+      </Stack>
+    </Paper>
   );
 }

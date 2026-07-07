@@ -1,3 +1,4 @@
+import { Button, Group, NativeSelect, NumberInput, Paper, Stack, TextInput } from "@mantine/core";
 import { useState } from "react";
 import type { Assignee, Category, RecurrenceRule, Task, TaskDraft } from "../domain/types";
 
@@ -38,99 +39,99 @@ export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Pr
   }
 
   return (
-    <form
-      className="task-form"
+    <Paper
+      component="form"
+      withBorder
+      p="lg"
+      radius="md"
       aria-label={task ? "Edytuj zadanie" : "Dodaj zadanie"}
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(draft);
       }}
     >
-      <label className="field">
-        <span>Nazwa zadania</span>
-        <input required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-      </label>
+      <Stack gap="sm">
+        <TextInput label="Nazwa zadania" required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.currentTarget.value })} />
 
-      <label className="field">
-        <span>Kategoria</span>
-        <input
+        <TextInput
+          label="Kategoria"
           required
           list="tasker-categories"
           value={draft.categoryName}
-          onChange={(event) => setDraft({ ...draft, categoryName: event.target.value })}
+          onChange={(event) => setDraft({ ...draft, categoryName: event.currentTarget.value })}
         />
         <datalist id="tasker-categories">
           {categories.map((category) => (
             <option key={category.id} value={category.name} />
           ))}
         </datalist>
-      </label>
 
-      <label className="field">
-        <span>Osoba</span>
-        <input
+        <TextInput
+          label="Osoba"
           required
           list="tasker-assignees"
           value={draft.assigneeName}
-          onChange={(event) => setDraft({ ...draft, assigneeName: event.target.value })}
+          onChange={(event) => setDraft({ ...draft, assigneeName: event.currentTarget.value })}
         />
         <datalist id="tasker-assignees">
           {assignees.map((assignee) => (
             <option key={assignee.id} value={assignee.name} />
           ))}
         </datalist>
-      </label>
 
-      <label className="field">
-        <span>Data startu</span>
-        <input required type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
-      </label>
+        <TextInput
+          label="Data startu"
+          required
+          type="date"
+          value={draft.startDate}
+          onChange={(event) => setDraft({ ...draft, startDate: event.currentTarget.value })}
+        />
 
-      <label className="field">
-        <span>Powtarzanie</span>
-        <select value={recurrenceType(draft.recurrence)} onChange={(event) => changeRecurrence(event.target.value as RecurrenceRule["type"])}>
-          <option value="daily">Codziennie</option>
-          <option value="everyNDays">Co N dni</option>
-          <option value="weekly">Co tydzień</option>
-          <option value="monthly">Co miesiąc</option>
-          <option value="quarterly">Co kwartał</option>
-        </select>
-      </label>
+        <NativeSelect
+          label="Powtarzanie"
+          value={recurrenceType(draft.recurrence)}
+          onChange={(event) => changeRecurrence(event.currentTarget.value as RecurrenceRule["type"])}
+          data={[
+            { value: "daily", label: "Codziennie" },
+            { value: "everyNDays", label: "Co N dni" },
+            { value: "weekly", label: "Co tydzien" },
+            { value: "monthly", label: "Co miesiac" },
+            { value: "quarterly", label: "Co kwartal" }
+          ]}
+        />
 
-      {draft.recurrence.type === "everyNDays" ? (
-        <label className="field">
-          <span>Liczba dni</span>
-          <input
+        {draft.recurrence.type === "everyNDays" ? (
+          <NumberInput
+            label="Liczba dni"
             required
             min={1}
-            type="number"
             value={draft.recurrence.intervalDays}
-            onChange={(event) =>
+            onChange={(value) =>
               setDraft({
                 ...draft,
-                recurrence: { type: "everyNDays", intervalDays: Number(event.target.value) }
+                recurrence: { type: "everyNDays", intervalDays: Number(value) }
               })
             }
           />
-        </label>
-      ) : null}
+        ) : null}
 
-      <label className="field">
-        <span>Status</span>
-        <select value={draft.active ? "active" : "inactive"} onChange={(event) => setDraft({ ...draft, active: event.target.value === "active" })}>
-          <option value="active">Aktywne</option>
-          <option value="inactive">Nieaktywne</option>
-        </select>
-      </label>
+        <NativeSelect
+          label="Status"
+          value={draft.active ? "active" : "inactive"}
+          onChange={(event) => setDraft({ ...draft, active: event.currentTarget.value === "active" })}
+          data={[
+            { value: "active", label: "Aktywne" },
+            { value: "inactive", label: "Nieaktywne" }
+          ]}
+        />
 
-      <div className="form-actions">
-        <button className="blue-button" type="submit">
-          Zapisz
-        </button>
-        <button className="secondary-button" type="button" onClick={onCancel}>
-          Anuluj
-        </button>
-      </div>
-    </form>
+        <Group gap="xs">
+          <Button type="submit">Zapisz</Button>
+          <Button type="button" variant="default" onClick={onCancel}>
+            Anuluj
+          </Button>
+        </Group>
+      </Stack>
+    </Paper>
   );
 }

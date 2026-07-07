@@ -1,3 +1,4 @@
+import { Group, Select, SegmentedControl, Stack } from "@mantine/core";
 import type { Assignee, Category, TodayFilters } from "../domain/types";
 
 type Props = {
@@ -8,39 +9,35 @@ type Props = {
 };
 
 export function TaskFilters({ categories, assignees, filters, onChange }: Props) {
-  return (
-    <section className="filters" aria-label="Filtry">
-      <div className="category-tabs" aria-label="Kategorie">
-        <button
-          className={filters.categoryId === "" ? "category-tab is-selected" : "category-tab"}
-          type="button"
-          onClick={() => onChange({ ...filters, categoryId: "" })}
-        >
-          Wszystkie
-        </button>
-        {categories.map((category) => (
-          <button
-            className={filters.categoryId === category.id ? "category-tab is-selected" : "category-tab"}
-            key={category.id}
-            type="button"
-            onClick={() => onChange({ ...filters, categoryId: category.id })}
-          >
-            {category.name}
-          </button>
-        ))}
-      </div>
+  const categoryData = [
+    { label: "Wszystkie", value: "" },
+    ...categories.map((category) => ({ label: category.name, value: category.id }))
+  ];
 
-      <label className="field assignee-filter">
-        <span>Osoba</span>
-        <select value={filters.assigneeId} onChange={(event) => onChange({ ...filters, assigneeId: event.target.value })}>
-          <option value="">Wszystkie osoby</option>
-          {assignees.map((assignee) => (
-            <option key={assignee.id} value={assignee.id}>
-              {assignee.name}
-            </option>
-          ))}
-        </select>
-      </label>
-    </section>
+  const assigneeData = [
+    { label: "Wszystkie osoby", value: "" },
+    ...assignees.map((assignee) => ({ label: assignee.name, value: assignee.id }))
+  ];
+
+  return (
+    <Group component="section" aria-label="Filtry" justify="space-between" align="end" gap="md">
+      <Stack gap={6}>
+        <SegmentedControl
+          aria-label="Kategorie"
+          data={categoryData}
+          value={filters.categoryId}
+          onChange={(categoryId) => onChange({ ...filters, categoryId })}
+        />
+      </Stack>
+
+      <Select
+        label="Osoba"
+        data={assigneeData}
+        value={filters.assigneeId}
+        onChange={(assigneeId) => onChange({ ...filters, assigneeId: assigneeId ?? "" })}
+        allowDeselect={false}
+        w={{ base: "100%", sm: 220 }}
+      />
+    </Group>
   );
 }

@@ -1,3 +1,4 @@
+import { MantineProvider } from "@mantine/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -5,7 +6,11 @@ import App from "./App";
 import { STORAGE_KEY } from "./storage/taskerStorage";
 
 function renderApp() {
-  render(<App now={new Date(2026, 6, 5, 9, 0)} />);
+  render(
+    <MantineProvider>
+      <App now={new Date(2026, 6, 5, 9, 0)} />
+    </MantineProvider>
+  );
 }
 
 async function addDailyTask(title: string, category: string, assignee: string) {
@@ -26,14 +31,14 @@ describe("App", () => {
   it("adds a task and persists it in localStorage", async () => {
     renderApp();
 
-    await addDailyTask("Podlać rośliny", "Dom", "Ola");
+    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
     expect(screen.getByRole("heading", { name: "Tasker" })).toBeInTheDocument();
     expect(screen.getByText("Niedziela, 5 lipca 2026")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Podlać rośliny" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Podlac rosliny" })).toBeInTheDocument();
     expect(screen.getAllByText("Dzisiaj").length).toBeGreaterThan(0);
     expect(screen.getByText("Jeszcze nie wykonane")).toBeInTheDocument();
-    expect(localStorage.getItem(STORAGE_KEY)).toContain("Podlać rośliny");
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("Podlac rosliny");
   });
 
   it("moves focus from the header add button to quick add", async () => {
@@ -48,22 +53,22 @@ describe("App", () => {
   it("marks a task as complete and removes it from today", async () => {
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Podlać rośliny", "Dom", "Ola");
+    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
     await user.click(screen.getByRole("button", { name: "Wykonane" }));
 
-    expect(screen.queryByRole("heading", { name: "Podlać rośliny" })).not.toBeInTheDocument();
-    expect(screen.getByText("Brak zadań na dziś")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
+    expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
   });
 
   it("postpones a task without recording completion", async () => {
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Podlać rośliny", "Dom", "Ola");
+    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
-    await user.click(screen.getByRole("button", { name: "Odłóż na jutro" }));
+    await user.click(screen.getByRole("button", { name: "Odloz na jutro" }));
 
-    expect(screen.queryByRole("heading", { name: "Podlać rośliny" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
     const stored = localStorage.getItem(STORAGE_KEY) ?? "";
     expect(stored).toContain("postponements");
     expect(stored).not.toContain("completedDate");
@@ -76,11 +81,12 @@ describe("App", () => {
     await addDailyTask("Praca Jana", "Praca", "Jan");
 
     const filters = screen.getByRole("region", { name: "Filtry" });
-    await user.click(within(filters).getByRole("button", { name: "Praca" }));
+    await user.click(within(filters).getByRole("radio", { name: "Praca" }));
     const assigneeFilter = within(filters).getByLabelText("Osoba");
-    await user.selectOptions(assigneeFilter, within(assigneeFilter).getByRole("option", { name: "Jan" }));
+    await user.click(assigneeFilter);
+    await user.click(screen.getByRole("option", { name: "Jan" }));
 
-    const list = screen.getByRole("region", { name: "Zadania na dziś" });
+    const list = screen.getByRole("region", { name: "Zadania na dzisiaj" });
     expect(within(list).getByRole("heading", { name: "Praca Jana" })).toBeInTheDocument();
     expect(within(list).queryByRole("heading", { name: "Dom Oli" })).not.toBeInTheDocument();
   });
