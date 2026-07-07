@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
 import { STORAGE_KEY } from "./storage/taskerStorage";
+import { resetTaskerStore } from "./state/taskerStore";
 
 function renderApp() {
   render(
@@ -17,15 +18,16 @@ async function addDailyTask(title: string, category: string, assignee: string) {
   const user = userEvent.setup();
 
   const form = screen.getByRole("form", { name: "Szybkie dodanie" });
-  await user.type(within(form).getByLabelText("Nazwa zadania"), title);
-  await user.type(within(form).getByLabelText("Kategoria"), category);
-  await user.type(within(form).getByLabelText("Osoba"), assignee);
+  await user.type(within(form).getByLabelText(/Nazwa zadania/), title);
+  await user.type(within(form).getByLabelText(/Kategoria/), category);
+  await user.type(within(form).getByLabelText(/Osoba/), assignee);
   await user.click(within(form).getByRole("button", { name: "Zapisz" }));
 }
 
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    resetTaskerStore();
   });
 
   it("adds a task and persists it in localStorage", async () => {
@@ -47,7 +49,7 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "+ Dodaj zadanie" }));
 
-    expect(screen.getByLabelText("Nazwa zadania")).toHaveFocus();
+    expect(screen.getByLabelText(/Nazwa zadania/)).toHaveFocus();
   });
 
   it("marks a task as complete and removes it from today", async () => {
@@ -84,7 +86,7 @@ describe("App", () => {
     await user.click(within(filters).getByRole("radio", { name: "Praca" }));
     const assigneeFilter = within(filters).getByLabelText("Osoba");
     await user.click(assigneeFilter);
-    await user.click(screen.getByRole("option", { name: "Jan" }));
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const list = screen.getByRole("region", { name: "Zadania na dzisiaj" });
     expect(within(list).getByRole("heading", { name: "Praca Jana" })).toBeInTheDocument();
@@ -98,8 +100,8 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Edytuj" }));
     const form = screen.getByRole("form", { name: "Edytuj zadanie" });
-    await user.clear(within(form).getByLabelText("Nazwa zadania"));
-    await user.type(within(form).getByLabelText("Nazwa zadania"), "Nowa nazwa");
+    await user.clear(within(form).getByLabelText(/Nazwa zadania/));
+    await user.type(within(form).getByLabelText(/Nazwa zadania/), "Nowa nazwa");
     await user.click(within(form).getByRole("button", { name: "Zapisz" }));
 
     expect(screen.getByRole("heading", { name: "Nowa nazwa" })).toBeInTheDocument();

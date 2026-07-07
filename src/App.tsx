@@ -2,18 +2,50 @@ import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@man
 import { QuickAddForm } from "./components/QuickAddForm";
 import { TaskFilters } from "./components/TaskFilters";
 import { TodayTaskList } from "./components/TodayTaskList";
-import { formatPolishDateLabel } from "./domain/dates";
-import { useTaskerState } from "./hooks/useTaskerState";
+import { formatPolishDateLabel, getTodayString } from "./domain/dates";
+import { buildTodayList } from "./domain/todayList";
+import type { TaskDraft } from "./domain/types";
+import { useTaskerStore } from "./state/taskerStore";
 
 type Props = {
   now?: Date;
 };
 
 export default function App({ now = new Date() }: Props) {
-  const tasker = useTaskerState(now);
+  const state = useTaskerStore((store) => store.state);
+  const storageError = useTaskerStore((store) => store.storageError);
+  const filters = useTaskerStore((store) => store.filters);
+  const setFilters = useTaskerStore((store) => store.setFilters);
+  const addTask = useTaskerStore((store) => store.addTask);
+  const updateTask = useTaskerStore((store) => store.updateTask);
+  const deactivateTask = useTaskerStore((store) => store.deactivateTask);
+  const completeTask = useTaskerStore((store) => store.completeTask);
+  const postponeTask = useTaskerStore((store) => store.postponeTask);
+  const today = getTodayString(now);
+  const todayTasks = buildTodayList(state, today, filters);
 
   function focusQuickAdd() {
     document.getElementById("quick-add-title")?.focus();
+  }
+
+  function handleAddTask(draft: TaskDraft) {
+    addTask(draft, now);
+  }
+
+  function handleUpdateTask(taskId: string, draft: TaskDraft) {
+    updateTask(taskId, draft, now);
+  }
+
+  function handleDeactivateTask(taskId: string) {
+    deactivateTask(taskId, now);
+  }
+
+  function handleCompleteTask(taskId: string, scheduledDate: string) {
+    completeTask(taskId, scheduledDate, now);
+  }
+
+  function handlePostponeTask(taskId: string) {
+    postponeTask(taskId, now);
   }
 
   return (
@@ -23,7 +55,7 @@ export default function App({ now = new Date() }: Props) {
           <Group justify="space-between" align="center" gap="md" wrap="wrap">
             <div>
               <Title order={1}>Tasker</Title>
-              <Text c="dimmed">{formatPolishDateLabel(tasker.today)}</Text>
+              <Text c="dimmed">{formatPolishDateLabel(today)}</Text>
             </div>
             <Button type="button" onClick={focusQuickAdd}>
               + Dodaj zadanie
@@ -38,35 +70,35 @@ export default function App({ now = new Date() }: Props) {
               <Text c="dimmed">Zadania wymagajace reakcji</Text>
             </div>
 
-            {tasker.storageError ? (
+            {storageError ? (
               <Alert color="yellow" title="Problem z lokalnymi danymi">
-                {tasker.storageError}
+                {storageError}
               </Alert>
             ) : null}
 
             <TaskFilters
-              categories={tasker.state.categories}
-              assignees={tasker.state.assignees}
-              filters={tasker.filters}
-              onChange={tasker.setFilters}
+              categories={state.categories}
+              assignees={state.assignees}
+              filters={filters}
+              onChange={setFilters}
             />
 
             <TodayTaskList
-              tasks={tasker.todayTasks}
-              categories={tasker.state.categories}
-              assignees={tasker.state.assignees}
+              tasks={todayTasks}
+              categories={state.categories}
+              assignees={state.assignees}
               onAdd={focusQuickAdd}
-              onComplete={tasker.completeTask}
-              onPostpone={tasker.postponeTask}
-              onDeactivate={tasker.deactivateTask}
-              onUpdate={tasker.updateTask}
+              onComplete={handleCompleteTask}
+              onPostpone={handlePostponeTask}
+              onDeactivate={handleDeactivateTask}
+              onUpdate={handleUpdateTask}
             />
 
             <QuickAddForm
-              categories={tasker.state.categories}
-              assignees={tasker.state.assignees}
-              today={tasker.today}
-              onSubmit={tasker.addTask}
+              categories={state.categories}
+              assignees={state.assignees}
+              today={today}
+              onSubmit={handleAddTask}
             />
           </Stack>
         </Paper>
