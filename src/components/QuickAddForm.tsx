@@ -29,8 +29,7 @@ export function QuickAddForm({ categories, assignees, today, onSubmit }: Props) 
         event.preventDefault();
         onSubmit({
           ...form,
-          recurrence: { type: "daily" },
-          startDate: today,
+          schedule: { mode: "recurring", startDate: today, recurrence: { type: "daily" } },
           active: true
         });
         setForm(emptyForm);

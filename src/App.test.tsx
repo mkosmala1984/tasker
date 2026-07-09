@@ -52,6 +52,18 @@ describe("App", () => {
     expect(screen.getByLabelText(/Nazwa zadania/)).toHaveFocus();
   });
 
+  it("navigates from Today to foundation placeholder views", async () => {
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Kalendarz" }));
+    expect(screen.getByRole("heading", { name: "Kalendarz" })).toBeInTheDocument();
+    expect(screen.getByText("Tutaj powstanie widok planowania zadan wedlug dat.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
+    expect(screen.getByRole("heading", { name: "Konfiguracja zadan" })).toBeInTheDocument();
+  });
+
   it("marks a task as complete and removes it from today", async () => {
     renderApp();
     const user = userEvent.setup();

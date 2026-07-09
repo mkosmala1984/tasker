@@ -1,16 +1,18 @@
 import { create } from "zustand";
 import { addDays, getTodayString } from "../domain/dates";
 import { addTask, completeTask, deactivateTask, postponeTask, updateTask } from "../domain/tasks";
-import type { AppState, TaskDraft, TodayFilters } from "../domain/types";
+import type { AppState, AppView, TaskDraft, TodayFilters } from "../domain/types";
 import { loadState, saveState } from "../storage/taskerStorage";
 
-export const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "" };
+export const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
 
 export type TaskerStore = {
   state: AppState;
   storageError?: string;
   filters: TodayFilters;
+  view: AppView;
   setFilters: (filters: TodayFilters) => void;
+  setView: (view: AppView) => void;
   addTask: (draft: TaskDraft, now?: Date) => void;
   updateTask: (taskId: string, draft: TaskDraft, now?: Date) => void;
   deactivateTask: (taskId: string, now?: Date) => void;
@@ -24,7 +26,8 @@ function loadInitialStoreState() {
   return {
     state: initial.state,
     storageError: initial.error,
-    filters: emptyFilters
+    filters: emptyFilters,
+    view: "today" as AppView
   };
 }
 
@@ -36,6 +39,7 @@ function persist(nextState: AppState): Pick<TaskerStore, "state"> {
 export const useTaskerStore = create<TaskerStore>((set, get) => ({
   ...loadInitialStoreState(),
   setFilters: (filters) => set({ filters }),
+  setView: (view) => set({ view }),
   addTask: (draft, now = new Date()) => {
     set(persist(addTask(get().state, draft, now.toISOString())));
   },

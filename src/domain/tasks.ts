@@ -1,6 +1,9 @@
+import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID } from "../storage/taskerStorage";
 import type { AppState, Assignee, Category, TaskDraft } from "./types";
 
 export type IdFactory = () => string;
+
+const DEFAULT_CATEGORY_COLOR = "#228be6";
 
 function normalizeName(value: string): string {
   return value.trim().replace(/\s+/g, " ");
@@ -19,14 +22,14 @@ function createId(prefix: string): string {
 
 export const defaultIdFactory: IdFactory = () => createId("id");
 
-function getOrCreateCategory(state: AppState, name: string, idFactory: IdFactory): { state: AppState; category: Category } {
+function getOrCreateCategory(state: AppState, name: string, color: string | undefined, idFactory: IdFactory): { state: AppState; category: Category } {
   const normalized = normalizeName(name);
   const existing = state.categories.find((category) => namesEqual(category.name, normalized));
   if (existing) {
     return { state, category: existing };
   }
 
-  const category = { id: idFactory(), name: normalized };
+  const category = { id: idFactory(), name: normalized, color: color?.trim() || DEFAULT_CATEGORY_COLOR };
   return { state: { ...state, categories: [...state.categories, category] }, category };
 }
 
@@ -49,16 +52,26 @@ function requireText(value: string, label: string): string {
   return normalized;
 }
 
+function firstActiveTaskTypeId(state: AppState): string {
+  return state.taskTypes.find((item) => item.active)?.id ?? DEFAULT_TASK_TYPE_ID;
+}
+
+function firstActivePriorityId(state: AppState): string {
+  return state.priorities.find((item) => item.active)?.id ?? DEFAULT_PRIORITY_ID;
+}
+
 function prepareDraft(state: AppState, draft: TaskDraft, idFactory: IdFactory) {
   const title = requireText(draft.title, "title");
-  const categoryResult = getOrCreateCategory(state, requireText(draft.categoryName, "categoryName"), idFactory);
+  const categoryResult = getOrCreateCategory(state, requireText(draft.categoryName, "categoryName"), draft.categoryColor, idFactory);
   const assigneeResult = getOrCreateAssignee(categoryResult.state, requireText(draft.assigneeName, "assigneeName"), idFactory);
 
   return {
     state: assigneeResult.state,
     title,
     categoryId: categoryResult.category.id,
-    assigneeId: assigneeResult.assignee.id
+    assigneeId: assigneeResult.assignee.id,
+    taskTypeId: draft.taskTypeId || firstActiveTaskTypeId(assigneeResult.state),
+    priorityId: draft.priorityId || firstActivePriorityId(assigneeResult.state)
   };
 }
 
@@ -75,8 +88,9 @@ export function addTask(state: AppState, draft: TaskDraft, nowIso: string, idFac
         title: prepared.title,
         categoryId: prepared.categoryId,
         assigneeId: prepared.assigneeId,
-        recurrence: draft.recurrence,
-        startDate: draft.startDate,
+        taskTypeId: prepared.taskTypeId,
+        priorityId: prepared.priorityId,
+        schedule: draft.schedule,
         active: draft.active,
         createdAt: nowIso,
         updatedAt: nowIso
@@ -103,8 +117,9 @@ export function updateTask(
             title: prepared.title,
             categoryId: prepared.categoryId,
             assigneeId: prepared.assigneeId,
-            recurrence: draft.recurrence,
-            startDate: draft.startDate,
+            taskTypeId: prepared.taskTypeId,
+            priorityId: prepared.priorityId,
+            schedule: draft.schedule,
             active: draft.active,
             updatedAt: nowIso
           }

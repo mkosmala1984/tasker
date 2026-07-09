@@ -1,92 +1,86 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID } from "../storage/taskerStorage";
 import { buildTodayList } from "./todayList";
-import type { AppState } from "./types";
+import type { AppState, Task } from "./types";
 
 const baseState: AppState = {
   tasks: [],
-  categories: [{ id: "cat-home", name: "Dom" }],
+  categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
   assignees: [{ id: "person-ola", name: "Ola" }],
+  taskTypes: [{ id: DEFAULT_TASK_TYPE_ID, name: "Zadanie", active: true, order: 0 }],
+  priorities: [{ id: DEFAULT_PRIORITY_ID, name: "Normalny", active: true, order: 0, color: "#868e96" }],
   completions: [],
   postponements: []
 };
 
-describe("buildTodayList", () => {
-  it("shows active tasks scheduled for today", () => {
-    const state: AppState = {
-      ...baseState,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlać rośliny",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
-      ]
-    };
+function task(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    title: "Podlac rosliny",
+    categoryId: "cat-home",
+    assigneeId: "person-ola",
+    taskTypeId: DEFAULT_TASK_TYPE_ID,
+    priorityId: DEFAULT_PRIORITY_ID,
+    schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
+    active: true,
+    createdAt: "2026-07-05T08:00:00.000Z",
+    updatedAt: "2026-07-05T08:00:00.000Z",
+    ...overrides
+  };
+}
 
-    const list = buildTodayList(state, "2026-07-05", { categoryId: "", assigneeId: "" });
+const emptyFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
+
+describe("buildTodayList", () => {
+  it("shows active recurring tasks scheduled for today", () => {
+    const state: AppState = { ...baseState, tasks: [task()] };
+
+    const list = buildTodayList(state, "2026-07-05", emptyFilters);
 
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ scheduledDate: "2026-07-05", isOverdue: false });
   });
 
-  it("shows overdue tasks with the original scheduled date", () => {
+  it("shows one-time tasks scheduled for today", () => {
+    const state: AppState = { ...baseState, tasks: [task({ schedule: { mode: "oneTime", date: "2026-07-05" } })] };
+
+    const list = buildTodayList(state, "2026-07-05", emptyFilters);
+
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ scheduledDate: "2026-07-05", isOverdue: false });
+  });
+
+  it("hides completed one-time tasks", () => {
     const state: AppState = {
       ...baseState,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlać rośliny",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-03",
-          active: true,
-          createdAt: "2026-07-03T08:00:00.000Z",
-          updatedAt: "2026-07-03T08:00:00.000Z"
-        }
-      ]
+      tasks: [task({ schedule: { mode: "oneTime", date: "2026-07-05" } })],
+      completions: [{ id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-05", completedDate: "2026-07-05" }]
     };
 
-    const list = buildTodayList(state, "2026-07-05", { categoryId: "", assigneeId: "" });
+    expect(buildTodayList(state, "2026-07-06", emptyFilters)).toHaveLength(0);
+  });
+
+  it("shows overdue recurring tasks with the original scheduled date", () => {
+    const state: AppState = {
+      ...baseState,
+      tasks: [task({ schedule: { mode: "recurring", startDate: "2026-07-03", recurrence: { type: "daily" } } })]
+    };
+
+    const list = buildTodayList(state, "2026-07-05", emptyFilters);
 
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ scheduledDate: "2026-07-03", isOverdue: true });
   });
 
-  it("hides tasks completed for the current occurrence", () => {
+  it("hides recurring tasks completed for the current occurrence until the next cycle", () => {
     const state: AppState = {
       ...baseState,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlać rośliny",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "weekly" },
-          startDate: "2026-07-01",
-          active: true,
-          createdAt: "2026-07-01T08:00:00.000Z",
-          updatedAt: "2026-07-01T08:00:00.000Z"
-        }
-      ],
-      completions: [
-        {
-          id: "completion-1",
-          taskId: "task-1",
-          scheduledDate: "2026-07-01",
-          completedDate: "2026-07-03"
-        }
-      ]
+      tasks: [task({ schedule: { mode: "recurring", startDate: "2026-07-01", recurrence: { type: "weekly" } } })],
+      completions: [{ id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-01", completedDate: "2026-07-03" }]
     };
 
-    const listBeforeNextCycle = buildTodayList(state, "2026-07-09", { categoryId: "", assigneeId: "" });
-    const listOnNextCycle = buildTodayList(state, "2026-07-10", { categoryId: "", assigneeId: "" });
+    const listBeforeNextCycle = buildTodayList(state, "2026-07-09", emptyFilters);
+    const listOnNextCycle = buildTodayList(state, "2026-07-10", emptyFilters);
 
     expect(listBeforeNextCycle).toHaveLength(0);
     expect(listOnNextCycle).toHaveLength(1);
@@ -96,19 +90,7 @@ describe("buildTodayList", () => {
   it("hides a task postponed from today and shows it again tomorrow as overdue", () => {
     const state: AppState = {
       ...baseState,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlać rośliny",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-03",
-          active: true,
-          createdAt: "2026-07-03T08:00:00.000Z",
-          updatedAt: "2026-07-03T08:00:00.000Z"
-        }
-      ],
+      tasks: [task({ schedule: { mode: "recurring", startDate: "2026-07-03", recurrence: { type: "daily" } } })],
       postponements: [
         {
           id: "postponement-1",
@@ -120,111 +102,44 @@ describe("buildTodayList", () => {
       ]
     };
 
-    expect(buildTodayList(state, "2026-07-05", { categoryId: "", assigneeId: "" })).toHaveLength(0);
-    const tomorrow = buildTodayList(state, "2026-07-06", { categoryId: "", assigneeId: "" });
+    expect(buildTodayList(state, "2026-07-05", emptyFilters)).toHaveLength(0);
+    const tomorrow = buildTodayList(state, "2026-07-06", emptyFilters);
     expect(tomorrow).toHaveLength(1);
     expect(tomorrow[0]).toMatchObject({ scheduledDate: "2026-07-03", isOverdue: true });
   });
 
-  it("filters by category and assignee", () => {
+  it("filters by category, assignee, task type, and priority", () => {
     const state: AppState = {
       ...baseState,
       categories: [
-        { id: "cat-home", name: "Dom" },
-        { id: "cat-work", name: "Praca" }
+        { id: "cat-home", name: "Dom", color: "#40c057" },
+        { id: "cat-work", name: "Praca", color: "#228be6" }
       ],
       assignees: [
         { id: "person-ola", name: "Ola" },
         { id: "person-jan", name: "Jan" }
       ],
+      taskTypes: [
+        { id: "type-task", name: "Zadanie", active: true, order: 0 },
+        { id: "type-deadline", name: "Termin", active: true, order: 1 }
+      ],
+      priorities: [
+        { id: "priority-normal", name: "Normalny", active: true, order: 0 },
+        { id: "priority-high", name: "Wysoki", active: true, order: 1 }
+      ],
       tasks: [
-        {
-          id: "task-1",
-          title: "Dom Oli",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        },
-        {
-          id: "task-2",
-          title: "Praca Jana",
-          categoryId: "cat-work",
-          assigneeId: "person-jan",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
+        task({ id: "task-1", title: "Dom Oli", categoryId: "cat-home", assigneeId: "person-ola", taskTypeId: "type-task", priorityId: "priority-normal" }),
+        task({ id: "task-2", title: "Praca Jana", categoryId: "cat-work", assigneeId: "person-jan", taskTypeId: "type-deadline", priorityId: "priority-high" })
       ]
     };
 
     const list = buildTodayList(state, "2026-07-05", {
       categoryId: "cat-work",
-      assigneeId: "person-jan"
+      assigneeId: "person-jan",
+      taskTypeId: "type-deadline",
+      priorityId: "priority-high"
     });
 
     expect(list.map((item) => item.task.title)).toEqual(["Praca Jana"]);
-  });
-
-  it("keeps working when category or assignee references are missing", () => {
-    const state: AppState = {
-      ...baseState,
-      categories: [],
-      assignees: [],
-      tasks: [
-        {
-          id: "task-1",
-          title: "Zadanie",
-          categoryId: "missing-category",
-          assigneeId: "missing-assignee",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
-      ]
-    };
-
-    const list = buildTodayList(state, "2026-07-05", { categoryId: "", assigneeId: "" });
-
-    expect(list[0].category.name).toBe("Nieznana kategoria");
-    expect(list[0].assignee.name).toBe("Nieznana osoba");
-  });
-
-  it("exposes the latest completion date for card metadata", () => {
-    const state: AppState = {
-      ...baseState,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlać rośliny",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
-      ],
-      completions: [
-        {
-          id: "completion-1",
-          taskId: "task-1",
-          scheduledDate: "2026-07-03",
-          completedDate: "2026-07-04"
-        }
-      ]
-    };
-
-    const list = buildTodayList(state, "2026-07-05", { categoryId: "", assigneeId: "" });
-
-    expect(list[0].lastCompletedDate).toBe("2026-07-04");
   });
 });

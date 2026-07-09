@@ -47,6 +47,8 @@ export function TodayTaskCard({ item, categories, assignees, onComplete, onPostp
         <Group aria-label="Szczegoly zadania" gap="xs">
           <Badge variant="default">{item.category.name}</Badge>
           <Badge variant="default">{item.assignee.name}</Badge>
+          <Badge variant="default">{item.taskType.name}</Badge>
+          <Badge variant="default">{item.priority.name}</Badge>
           <Text c="dimmed" size="sm">
             {completionText}
           </Text>

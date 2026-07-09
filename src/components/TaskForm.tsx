@@ -17,9 +17,11 @@ function defaultDraft(task?: Task, categories: Category[] = [], assignees: Assig
   return {
     title: task?.title ?? "",
     categoryName: category?.name ?? "",
+    categoryColor: category?.color,
     assigneeName: assignee?.name ?? "",
-    recurrence: task?.recurrence ?? { type: "daily" },
-    startDate: task?.startDate ?? "",
+    taskTypeId: task?.taskTypeId,
+    priorityId: task?.priorityId,
+    schedule: task?.schedule ?? { mode: "recurring", startDate: "", recurrence: { type: "daily" } },
     active: task?.active ?? true
   };
 }
@@ -30,11 +32,17 @@ function recurrenceType(recurrence: RecurrenceRule): RecurrenceRule["type"] {
 
 export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Props) {
   const [draft, setDraft] = useState<TaskDraft>(() => defaultDraft(task, categories, assignees));
+  const recurrence = draft.schedule.mode === "recurring" ? draft.schedule.recurrence : { type: "daily" as const };
+  const startDate = draft.schedule.mode === "recurring" ? draft.schedule.startDate : draft.schedule.date;
 
   function changeRecurrence(type: RecurrenceRule["type"]) {
     setDraft((current) => ({
       ...current,
-      recurrence: type === "everyNDays" ? { type, intervalDays: 2 } : { type }
+      schedule: {
+        mode: "recurring",
+        startDate: current.schedule.mode === "recurring" ? current.schedule.startDate : current.schedule.date,
+        recurrence: type === "everyNDays" ? { type, intervalDays: 2 } : { type }
+      }
     }));
   }
 
@@ -83,13 +91,22 @@ export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Pr
           label="Data startu"
           required
           type="date"
-          value={draft.startDate}
-          onChange={(event) => setDraft({ ...draft, startDate: event.currentTarget.value })}
+          value={startDate}
+          onChange={(event) =>
+            setDraft({
+              ...draft,
+              schedule: {
+                mode: "recurring",
+                startDate: event.currentTarget.value,
+                recurrence
+              }
+            })
+          }
         />
 
         <NativeSelect
           label="Powtarzanie"
-          value={recurrenceType(draft.recurrence)}
+          value={recurrenceType(recurrence)}
           onChange={(event) => changeRecurrence(event.currentTarget.value as RecurrenceRule["type"])}
           data={[
             { value: "daily", label: "Codziennie" },
@@ -100,16 +117,20 @@ export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Pr
           ]}
         />
 
-        {draft.recurrence.type === "everyNDays" ? (
+        {recurrence.type === "everyNDays" ? (
           <NumberInput
             label="Liczba dni"
             required
             min={1}
-            value={draft.recurrence.intervalDays}
+            value={recurrence.intervalDays}
             onChange={(value) =>
               setDraft({
                 ...draft,
-                recurrence: { type: "everyNDays", intervalDays: Number(value) }
+                schedule: {
+                  mode: "recurring",
+                  startDate,
+                  recurrence: { type: "everyNDays", intervalDays: Number(value) }
+                }
               })
             }
           />

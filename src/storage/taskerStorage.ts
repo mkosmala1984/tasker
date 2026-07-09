@@ -1,4 +1,4 @@
-import type { AppState } from "../domain/types";
+import type { AppState, Priority, TaskType } from "../domain/types";
 
 export const STORAGE_KEY = "tasker:v1";
 
@@ -7,11 +7,24 @@ export type LoadResult = {
   error?: string;
 };
 
+export const DEFAULT_TASK_TYPE_ID = "task-type-default";
+export const DEFAULT_PRIORITY_ID = "priority-normal";
+
+export function createDefaultTaskTypes(): TaskType[] {
+  return [{ id: DEFAULT_TASK_TYPE_ID, name: "Zadanie", active: true, order: 0 }];
+}
+
+export function createDefaultPriorities(): Priority[] {
+  return [{ id: DEFAULT_PRIORITY_ID, name: "Normalny", active: true, order: 0, color: "#868e96" }];
+}
+
 export function createEmptyState(): AppState {
   return {
     tasks: [],
     categories: [],
     assignees: [],
+    taskTypes: createDefaultTaskTypes(),
+    priorities: createDefaultPriorities(),
     completions: [],
     postponements: []
   };
@@ -34,6 +47,8 @@ function isAppState(value: unknown): value is AppState {
     isArrayProperty(value, "tasks") &&
     isArrayProperty(value, "categories") &&
     isArrayProperty(value, "assignees") &&
+    isArrayProperty(value, "taskTypes") &&
+    isArrayProperty(value, "priorities") &&
     isArrayProperty(value, "completions") &&
     isArrayProperty(value, "postponements")
   );

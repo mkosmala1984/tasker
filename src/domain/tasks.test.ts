@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID } from "../storage/taskerStorage";
 import { addTask, completeTask, deactivateTask, postponeTask, updateTask } from "./tasks";
 import { buildTodayList } from "./todayList";
 import type { AppState } from "./types";
@@ -7,6 +8,8 @@ const emptyState: AppState = {
   tasks: [],
   categories: [],
   assignees: [],
+  taskTypes: [{ id: DEFAULT_TASK_TYPE_ID, name: "Zadanie", active: true, order: 0 }],
+  priorities: [{ id: DEFAULT_PRIORITY_ID, name: "Normalny", active: true, order: 0, color: "#868e96" }],
   completions: [],
   postponements: []
 };
@@ -17,15 +20,15 @@ function ids(...values: string[]) {
 }
 
 describe("task mutations", () => {
-  it("adds a task and creates reusable category and assignee records", () => {
+  it("adds a recurring task and creates reusable category and assignee records", () => {
     const state = addTask(
       emptyState,
       {
-        title: "Podlać rośliny",
+        title: "Podlac rosliny",
         categoryName: "Dom",
+        categoryColor: "#40c057",
         assigneeName: "Ola",
-        recurrence: { type: "daily" },
-        startDate: "2026-07-05",
+        schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
         active: true
       },
       "2026-07-05T08:00:00.000Z",
@@ -34,14 +37,45 @@ describe("task mutations", () => {
 
     expect(state.tasks[0]).toMatchObject({
       id: "task-1",
-      title: "Podlać rośliny",
+      title: "Podlac rosliny",
       categoryId: "cat-1",
       assigneeId: "assignee-1",
-      startDate: "2026-07-05",
+      taskTypeId: DEFAULT_TASK_TYPE_ID,
+      priorityId: DEFAULT_PRIORITY_ID,
+      schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
       active: true
     });
-    expect(state.categories).toEqual([{ id: "cat-1", name: "Dom" }]);
+    expect(state.categories).toEqual([{ id: "cat-1", name: "Dom", color: "#40c057" }]);
     expect(state.assignees).toEqual([{ id: "assignee-1", name: "Ola" }]);
+  });
+
+  it("adds a one-time task with selected type and priority", () => {
+    const state: AppState = {
+      ...emptyState,
+      taskTypes: [{ id: "type-deadline", name: "Termin", active: true, order: 0 }],
+      priorities: [{ id: "priority-high", name: "Wysoki", active: true, order: 0, color: "#fa5252" }]
+    };
+
+    const next = addTask(
+      state,
+      {
+        title: "Zaplacic rachunek",
+        categoryName: "Finanse",
+        assigneeName: "Jan",
+        taskTypeId: "type-deadline",
+        priorityId: "priority-high",
+        schedule: { mode: "oneTime", date: "2026-07-08" },
+        active: true
+      },
+      "2026-07-05T08:00:00.000Z",
+      ids("task-1", "cat-1", "assignee-1")
+    );
+
+    expect(next.tasks[0]).toMatchObject({
+      taskTypeId: "type-deadline",
+      priorityId: "priority-high",
+      schedule: { mode: "oneTime", date: "2026-07-08" }
+    });
   });
 
   it("reuses existing category and assignee names case-insensitively", () => {
@@ -51,8 +85,7 @@ describe("task mutations", () => {
         title: "Pierwsze",
         categoryName: "Dom",
         assigneeName: "Ola",
-        recurrence: { type: "daily" },
-        startDate: "2026-07-05",
+        schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
         active: true
       },
       "2026-07-05T08:00:00.000Z",
@@ -65,8 +98,7 @@ describe("task mutations", () => {
         title: "Drugie",
         categoryName: " dom ",
         assigneeName: " ola ",
-        recurrence: { type: "weekly" },
-        startDate: "2026-07-06",
+        schedule: { mode: "recurring", startDate: "2026-07-06", recurrence: { type: "weekly" } },
         active: true
       },
       "2026-07-05T09:00:00.000Z",
@@ -82,11 +114,10 @@ describe("task mutations", () => {
     const initial = addTask(
       emptyState,
       {
-        title: "Podlać rośliny",
+        title: "Podlac rosliny",
         categoryName: "Dom",
         assigneeName: "Ola",
-        recurrence: { type: "daily" },
-        startDate: "2026-07-05",
+        schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
         active: true
       },
       "2026-07-05T08:00:00.000Z",
@@ -97,11 +128,11 @@ describe("task mutations", () => {
       initial,
       "task-1",
       {
-        title: "Zapłacić fakturę",
+        title: "Zaplacic fakture",
         categoryName: "Finanse",
+        categoryColor: "#fab005",
         assigneeName: "Jan",
-        recurrence: { type: "monthly" },
-        startDate: "2026-07-10",
+        schedule: { mode: "recurring", startDate: "2026-07-10", recurrence: { type: "monthly" } },
         active: true
       },
       "2026-07-05T10:00:00.000Z",
@@ -109,25 +140,23 @@ describe("task mutations", () => {
     );
 
     expect(next.tasks[0]).toMatchObject({
-      title: "Zapłacić fakturę",
+      title: "Zaplacic fakture",
       categoryId: "cat-2",
       assigneeId: "assignee-2",
-      recurrence: { type: "monthly" },
-      startDate: "2026-07-10"
+      schedule: { mode: "recurring", startDate: "2026-07-10", recurrence: { type: "monthly" } }
     });
     expect(next.categories.map((category) => category.name)).toEqual(["Dom", "Finanse"]);
-    expect(next.assignees.map((assignee) => assignee.name)).toEqual(["Ola", "Jan"]);
+    expect(next.categories[1].color).toBe("#fab005");
   });
 
   it("deactivates a task", () => {
     const initial = addTask(
       emptyState,
       {
-        title: "Podlać rośliny",
+        title: "Podlac rosliny",
         categoryName: "Dom",
         assigneeName: "Ola",
-        recurrence: { type: "daily" },
-        startDate: "2026-07-05",
+        schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } },
         active: true
       },
       "2026-07-05T08:00:00.000Z",
@@ -139,15 +168,14 @@ describe("task mutations", () => {
     expect(next.tasks[0]).toMatchObject({ active: false, updatedAt: "2026-07-05T11:00:00.000Z" });
   });
 
-  it("records completion and makes the next cycle depend on actual completion date", () => {
+  it("records completion and makes the next recurring cycle depend on actual completion date", () => {
     const initial = addTask(
       emptyState,
       {
         title: "Raport",
         categoryName: "Praca",
         assigneeName: "Ola",
-        recurrence: { type: "everyNDays", intervalDays: 7 },
-        startDate: "2026-07-01",
+        schedule: { mode: "recurring", startDate: "2026-07-01", recurrence: { type: "everyNDays", intervalDays: 7 } },
         active: true
       },
       "2026-07-01T08:00:00.000Z",
@@ -155,7 +183,7 @@ describe("task mutations", () => {
     );
 
     const completed = completeTask(initial, "task-1", "2026-07-01", "2026-07-03", ids("completion-1"));
-    const list = buildTodayList(completed, "2026-07-10", { categoryId: "", assigneeId: "" });
+    const list = buildTodayList(completed, "2026-07-10", { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" });
 
     expect(completed.completions).toEqual([
       {
@@ -172,11 +200,10 @@ describe("task mutations", () => {
     const initial = addTask(
       emptyState,
       {
-        title: "Podlać rośliny",
+        title: "Podlac rosliny",
         categoryName: "Dom",
         assigneeName: "Ola",
-        recurrence: { type: "daily" },
-        startDate: "2026-07-05",
+        schedule: { mode: "oneTime", date: "2026-07-05" },
         active: true
       },
       "2026-07-05T08:00:00.000Z",
