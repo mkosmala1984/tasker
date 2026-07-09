@@ -1,6 +1,7 @@
 import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import { QuickAddForm } from "./components/QuickAddForm";
 import { TaskFilters } from "./components/TaskFilters";
+import { TasksModuleView } from "./components/tasks/TasksModuleView";
 import { TodayTaskList } from "./components/TodayTaskList";
 import { formatPolishDateLabel, getTodayString } from "./domain/dates";
 import { buildTodayList } from "./domain/todayList";
@@ -19,23 +20,20 @@ export default function App({ now = new Date() }: Props) {
   const view = useTaskerStore((store) => store.view);
   const setView = useTaskerStore((store) => store.setView);
   const addTask = useTaskerStore((store) => store.addTask);
-  const updateTask = useTaskerStore((store) => store.updateTask);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
   const postponeTask = useTaskerStore((store) => store.postponeTask);
+  const openTaskCreate = useTaskerStore((store) => store.openTaskCreate);
+  const openTaskEdit = useTaskerStore((store) => store.openTaskEdit);
   const today = getTodayString(now);
   const todayTasks = buildTodayList(state, today, filters);
 
-  function focusQuickAdd() {
-    document.getElementById("quick-add-title")?.focus();
+  function handleCreateTask() {
+    openTaskCreate();
   }
 
   function handleAddTask(draft: TaskDraft) {
     addTask(draft, now);
-  }
-
-  function handleUpdateTask(taskId: string, draft: TaskDraft) {
-    updateTask(taskId, draft, now);
   }
 
   function handleDeactivateTask(taskId: string) {
@@ -70,7 +68,7 @@ export default function App({ now = new Date() }: Props) {
               <Title order={1}>Tasker</Title>
               <Text c="dimmed">{formatPolishDateLabel(today)}</Text>
             </div>
-            <Button type="button" onClick={focusQuickAdd}>
+            <Button type="button" onClick={handleCreateTask}>
               + Dodaj zadanie
             </Button>
           </Group>
@@ -123,13 +121,11 @@ export default function App({ now = new Date() }: Props) {
 
               <TodayTaskList
                 tasks={todayTasks}
-                categories={state.categories}
-                assignees={state.assignees}
-                onAdd={focusQuickAdd}
+                onAdd={handleCreateTask}
                 onComplete={handleCompleteTask}
                 onPostpone={handlePostponeTask}
                 onDeactivate={handleDeactivateTask}
-                onUpdate={handleUpdateTask}
+                onEdit={openTaskEdit}
               />
 
               <QuickAddForm
@@ -141,7 +137,7 @@ export default function App({ now = new Date() }: Props) {
             </Stack>
           </Paper>
         ) : null}
-        {view === "tasks" ? <PlaceholderView title="Zadania" description="Tutaj powstanie osobny widok dodawania i edycji zadan." /> : null}
+        {view === "tasks" ? <TasksModuleView today={today} /> : null}
         {view === "calendar" ? <PlaceholderView title="Kalendarz" description="Tutaj powstanie widok planowania zadan wedlug dat." /> : null}
         {view === "categories" ? <PlaceholderView title="Kategorie" description="Tutaj powstanie zarzadzanie kategoriami i kolorami." /> : null}
         {view === "settings" ? <PlaceholderView title="Konfiguracja zadan" description="Tutaj powstanie konfiguracja typow, priorytetow i slownikow." /> : null}

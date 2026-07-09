@@ -1,49 +1,60 @@
-import { Button, Group, NativeSelect, NumberInput, Paper, Stack, TextInput } from "@mantine/core";
-import { useState } from "react";
-import type { Assignee, Category, RecurrenceRule, Task, TaskDraft } from "../domain/types";
+import { Alert, Button, Checkbox, Group, NativeSelect, NumberInput, Paper, Stack, Text, TextInput } from "@mantine/core";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import {
+  createEmptyTaskFormValues,
+  recurrenceOptions,
+  taskFormValuesToDraft,
+  taskToFormValues,
+  validateTaskFormValues,
+  type TaskFormErrors,
+  type TaskFormValues
+} from "../domain/taskForm";
+import type { AppState, Task, TaskDraft } from "../domain/types";
 
 type Props = {
-  categories: Category[];
-  assignees: Assignee[];
+  state: AppState;
+  today: string;
   task?: Task;
+  submitLabel: string;
   onSubmit: (draft: TaskDraft) => void;
   onCancel: () => void;
 };
 
-function defaultDraft(task?: Task, categories: Category[] = [], assignees: Assignee[] = []): TaskDraft {
-  const category = categories.find((item) => item.id === task?.categoryId);
-  const assignee = assignees.find((item) => item.id === task?.assigneeId);
-
-  return {
-    title: task?.title ?? "",
-    categoryName: category?.name ?? "",
-    categoryColor: category?.color,
-    assigneeName: assignee?.name ?? "",
-    taskTypeId: task?.taskTypeId,
-    priorityId: task?.priorityId,
-    schedule: task?.schedule ?? { mode: "recurring", startDate: "", recurrence: { type: "daily" } },
-    active: task?.active ?? true
-  };
+function activeOptions<T extends { id: string; name: string; active?: boolean; order?: number }>(items: T[]) {
+  return [...items]
+    .filter((item) => item.active !== false)
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+    .map((item) => ({ value: item.id, label: item.name }));
 }
 
-function recurrenceType(recurrence: RecurrenceRule): RecurrenceRule["type"] {
-  return recurrence.type;
+function priorityOptions(state: AppState) {
+  return [{ value: "", label: "Domyslny priorytet" }, ...activeOptions(state.priorities)];
 }
 
-export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Props) {
-  const [draft, setDraft] = useState<TaskDraft>(() => defaultDraft(task, categories, assignees));
-  const recurrence = draft.schedule.mode === "recurring" ? draft.schedule.recurrence : { type: "daily" as const };
-  const startDate = draft.schedule.mode === "recurring" ? draft.schedule.startDate : draft.schedule.date;
+function hasErrors(errors: TaskFormErrors): boolean {
+  return Object.keys(errors).length > 0;
+}
 
-  function changeRecurrence(type: RecurrenceRule["type"]) {
-    setDraft((current) => ({
-      ...current,
-      schedule: {
-        mode: "recurring",
-        startDate: current.schedule.mode === "recurring" ? current.schedule.startDate : current.schedule.date,
-        recurrence: type === "everyNDays" ? { type, intervalDays: 2 } : { type }
-      }
-    }));
+export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }: Props) {
+  const [values, setValues] = useState<TaskFormValues>(() =>
+    task ? taskToFormValues(task, state) : createEmptyTaskFormValues(state, today)
+  );
+  const [errors, setErrors] = useState<TaskFormErrors>({});
+
+  useEffect(() => {
+    setValues(task ? taskToFormValues(task, state) : createEmptyTaskFormValues(state, today));
+    setErrors({});
+  }, [state, task, today]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextErrors = validateTaskFormValues(values, state);
+    setErrors(nextErrors);
+    if (hasErrors(nextErrors)) {
+      return;
+    }
+    onSubmit(taskFormValuesToDraft(values, state));
   }
 
   return (
@@ -53,101 +64,131 @@ export function TaskForm({ categories, assignees, task, onSubmit, onCancel }: Pr
       p="lg"
       radius="md"
       aria-label={task ? "Edytuj zadanie" : "Dodaj zadanie"}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(draft);
-      }}
+      noValidate
+      onSubmit={handleSubmit}
     >
       <Stack gap="sm">
-        <TextInput label="Nazwa zadania" required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.currentTarget.value })} />
-
-        <TextInput
-          label="Kategoria"
-          required
-          list="tasker-categories"
-          value={draft.categoryName}
-          onChange={(event) => setDraft({ ...draft, categoryName: event.currentTarget.value })}
-        />
-        <datalist id="tasker-categories">
-          {categories.map((category) => (
-            <option key={category.id} value={category.name} />
-          ))}
-        </datalist>
-
-        <TextInput
-          label="Osoba"
-          required
-          list="tasker-assignees"
-          value={draft.assigneeName}
-          onChange={(event) => setDraft({ ...draft, assigneeName: event.currentTarget.value })}
-        />
-        <datalist id="tasker-assignees">
-          {assignees.map((assignee) => (
-            <option key={assignee.id} value={assignee.name} />
-          ))}
-        </datalist>
-
-        <TextInput
-          label="Data startu"
-          required
-          type="date"
-          value={startDate}
-          onChange={(event) =>
-            setDraft({
-              ...draft,
-              schedule: {
-                mode: "recurring",
-                startDate: event.currentTarget.value,
-                recurrence
-              }
-            })
-          }
-        />
-
-        <NativeSelect
-          label="Powtarzanie"
-          value={recurrenceType(recurrence)}
-          onChange={(event) => changeRecurrence(event.currentTarget.value as RecurrenceRule["type"])}
-          data={[
-            { value: "daily", label: "Codziennie" },
-            { value: "everyNDays", label: "Co N dni" },
-            { value: "weekly", label: "Co tydzien" },
-            { value: "monthly", label: "Co miesiac" },
-            { value: "quarterly", label: "Co kwartal" }
-          ]}
-        />
-
-        {recurrence.type === "everyNDays" ? (
-          <NumberInput
-            label="Liczba dni"
-            required
-            min={1}
-            value={recurrence.intervalDays}
-            onChange={(value) =>
-              setDraft({
-                ...draft,
-                schedule: {
-                  mode: "recurring",
-                  startDate,
-                  recurrence: { type: "everyNDays", intervalDays: Number(value) }
-                }
-              })
-            }
-          />
+        {errors.dictionary ? (
+          <Alert color="yellow" title="Brakuje slownikow">
+            {errors.dictionary}
+          </Alert>
         ) : null}
 
-        <NativeSelect
-          label="Status"
-          value={draft.active ? "active" : "inactive"}
-          onChange={(event) => setDraft({ ...draft, active: event.currentTarget.value === "active" })}
-          data={[
-            { value: "active", label: "Aktywne" },
-            { value: "inactive", label: "Nieaktywne" }
-          ]}
+        <TextInput
+          label="Nazwa zadania"
+          aria-label="Nazwa zadania"
+          required
+          value={values.title}
+          error={errors.title}
+          onChange={(event) => setValues({ ...values, title: event.currentTarget.value })}
         />
 
+        <NativeSelect
+          label="Typ zadania"
+          aria-label="Typ zadania"
+          required
+          value={values.taskTypeId}
+          error={errors.taskTypeId}
+          data={activeOptions(state.taskTypes)}
+          onChange={(event) => setValues({ ...values, taskTypeId: event.currentTarget.value })}
+        />
+
+        <NativeSelect
+          label="Tryb"
+          aria-label="Tryb"
+          value={values.mode}
+          data={[
+            { value: "oneTime", label: "Jednorazowe" },
+            { value: "recurring", label: "Cykliczne" }
+          ]}
+          onChange={(event) => setValues({ ...values, mode: event.currentTarget.value as TaskFormValues["mode"] })}
+        />
+
+        {values.mode === "oneTime" ? (
+          <TextInput
+            label="Data zadania"
+            aria-label="Data zadania"
+            required
+            type="date"
+            value={values.oneTimeDate}
+            error={errors.oneTimeDate}
+            onChange={(event) => setValues({ ...values, oneTimeDate: event.currentTarget.value })}
+          />
+        ) : (
+          <>
+            <TextInput
+              label="Data startu"
+              aria-label="Data startu"
+              required
+              type="date"
+              value={values.recurringStartDate}
+              error={errors.recurringStartDate}
+              onChange={(event) => setValues({ ...values, recurringStartDate: event.currentTarget.value })}
+            />
+            <NativeSelect
+              label="Regula powtarzania"
+              aria-label="Regula powtarzania"
+              value={values.recurrenceType}
+              data={recurrenceOptions}
+              onChange={(event) =>
+                setValues({ ...values, recurrenceType: event.currentTarget.value as TaskFormValues["recurrenceType"] })
+              }
+            />
+            {values.recurrenceType === "everyNDays" ? (
+              <NumberInput
+                label="Liczba dni"
+                aria-label="Liczba dni"
+                required
+                min={1}
+                clampBehavior="none"
+                value={values.intervalDays}
+                error={errors.intervalDays}
+                onChange={(value) => setValues({ ...values, intervalDays: Number(value) })}
+              />
+            ) : null}
+          </>
+        )}
+
+        <NativeSelect
+          label="Kategoria"
+          aria-label="Kategoria"
+          required
+          value={values.categoryId}
+          error={errors.categoryId}
+          data={activeOptions(state.categories)}
+          onChange={(event) => setValues({ ...values, categoryId: event.currentTarget.value })}
+        />
+
+        <NativeSelect
+          label="Osoba"
+          aria-label="Osoba"
+          required
+          value={values.assigneeId}
+          error={errors.assigneeId}
+          data={activeOptions(state.assignees)}
+          onChange={(event) => setValues({ ...values, assigneeId: event.currentTarget.value })}
+        />
+
+        <NativeSelect
+          label="Priorytet"
+          aria-label="Priorytet"
+          value={values.priorityId}
+          data={priorityOptions(state)}
+          onChange={(event) => setValues({ ...values, priorityId: event.currentTarget.value })}
+        />
+
+        <Checkbox
+          label="Aktywne"
+          checked={values.active}
+          onChange={(event) => setValues({ ...values, active: event.currentTarget.checked })}
+        />
+
+        <Text c="dimmed" size="sm">
+          Nieaktywne zadanie pozostaje w danych, ale nie pojawia sie w planie jako wymagajace reakcji.
+        </Text>
+
         <Group gap="xs">
-          <Button type="submit">Zapisz</Button>
+          <Button type="submit">{submitLabel}</Button>
           <Button type="button" variant="default" onClick={onCancel}>
             Anuluj
           </Button>

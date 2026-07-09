@@ -1,36 +1,15 @@
 import { Badge, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
-import { useState } from "react";
-import type { Assignee, Category, TaskDraft, TodayTask } from "../domain/types";
-import { TaskForm } from "./TaskForm";
+import type { TodayTask } from "../domain/types";
 
 type Props = {
   item: TodayTask;
-  categories: Category[];
-  assignees: Assignee[];
   onComplete: (taskId: string, scheduledDate: string) => void;
   onPostpone: (taskId: string) => void;
   onDeactivate: (taskId: string) => void;
-  onUpdate: (taskId: string, draft: TaskDraft) => void;
+  onEdit: (taskId: string) => void;
 };
 
-export function TodayTaskCard({ item, categories, assignees, onComplete, onPostpone, onDeactivate, onUpdate }: Props) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  if (isEditing) {
-    return (
-      <TaskForm
-        task={item.task}
-        categories={categories}
-        assignees={assignees}
-        onCancel={() => setIsEditing(false)}
-        onSubmit={(draft) => {
-          onUpdate(item.task.id, draft);
-          setIsEditing(false);
-        }}
-      />
-    );
-  }
-
+export function TodayTaskCard({ item, onComplete, onPostpone, onDeactivate, onEdit }: Props) {
   const statusText = item.isOverdue ? `Zalegle od ${item.scheduledDate}` : "Dzisiaj";
   const completionText = item.lastCompletedDate ? `Ostatnio wykonane: ${item.lastCompletedDate}` : "Jeszcze nie wykonane";
 
@@ -61,7 +40,7 @@ export function TodayTaskCard({ item, categories, assignees, onComplete, onPostp
           <Button type="button" variant="default" onClick={() => onPostpone(item.task.id)}>
             Odloz na jutro
           </Button>
-          <Button type="button" variant="default" onClick={() => setIsEditing(true)}>
+          <Button type="button" variant="default" onClick={() => onEdit(item.task.id)}>
             Edytuj
           </Button>
           <Button type="button" color="red" variant="light" onClick={() => onDeactivate(item.task.id)}>

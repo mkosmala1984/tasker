@@ -11,8 +11,12 @@ export type TaskerStore = {
   storageError?: string;
   filters: TodayFilters;
   view: AppView;
+  taskEditorTaskId?: string | null;
   setFilters: (filters: TodayFilters) => void;
   setView: (view: AppView) => void;
+  openTaskCreate: () => void;
+  openTaskEdit: (taskId: string) => void;
+  closeTaskEditor: () => void;
   addTask: (draft: TaskDraft, now?: Date) => void;
   updateTask: (taskId: string, draft: TaskDraft, now?: Date) => void;
   deactivateTask: (taskId: string, now?: Date) => void;
@@ -27,7 +31,8 @@ function loadInitialStoreState() {
     state: initial.state,
     storageError: initial.error,
     filters: emptyFilters,
-    view: "today" as AppView
+    view: "today" as AppView,
+    taskEditorTaskId: undefined
   };
 }
 
@@ -39,7 +44,10 @@ function persist(nextState: AppState): Pick<TaskerStore, "state"> {
 export const useTaskerStore = create<TaskerStore>((set, get) => ({
   ...loadInitialStoreState(),
   setFilters: (filters) => set({ filters }),
-  setView: (view) => set({ view }),
+  setView: (view) => set({ view, taskEditorTaskId: undefined }),
+  openTaskCreate: () => set({ view: "tasks", taskEditorTaskId: null }),
+  openTaskEdit: (taskId) => set({ view: "tasks", taskEditorTaskId: taskId }),
+  closeTaskEditor: () => set({ taskEditorTaskId: undefined }),
   addTask: (draft, now = new Date()) => {
     set(persist(addTask(get().state, draft, now.toISOString())));
   },
