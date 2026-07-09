@@ -412,9 +412,9 @@ Docelowy model powinien przechowywac co najmniej:
 - typy zadan,
 - priorytety,
 - konfiguracje slownikow,
-- wersje schematu danych.
+- kompletna strukture lokalnych danych.
 
-Dane sa przechowywane lokalnie w przegladarce albo innym lokalnym magazynie aplikacji. Format danych powinien byc wersjonowany, aby umozliwic migracje i bezpieczny import.
+Dane sa przechowywane lokalnie w przegladarce albo innym lokalnym magazynie aplikacji. Format danych powinien byc walidowany, aby umozliwic bezpieczny import i wykrywanie uszkodzonych danych.
 
 ## Wymagania niefunkcjonalne
 
@@ -450,5 +450,5 @@ Docelowa wersja spelnia specyfikacje, gdy:
 - sposob pozniejszej synchronizacji danych,
 - ewentualne konta uzytkownikow,
 - statystyki i raporty,
-- migracja z lokalnego magazynu do backendu,
+- ewentualne przeniesienie danych z lokalnego magazynu do backendu,
 - rozbudowa typow zadan o zachowania biznesowe, jesli kiedys bedzie potrzebna.

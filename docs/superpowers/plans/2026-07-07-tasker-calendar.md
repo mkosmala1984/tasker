@@ -19,7 +19,7 @@
 - Do not implement history, import, or export in this plan.
 - Keep date and recurrence logic outside React components and covered by unit tests.
 - Use ASCII in source and docs unless the touched file already intentionally uses non-ASCII.
-- This plan assumes `docs/superpowers/plans/2026-07-07-tasker-foundation.md` has been implemented first: `AppState.version === 2`, `Task.schedule`, `AppView`, task types, priorities, category colors, and Calendar navigation placeholder exist.
+- This plan assumes `docs/superpowers/plans/2026-07-07-tasker-foundation.md` has been implemented first: `Task.schedule`, `AppView`, task types, priorities, category colors, and Calendar navigation placeholder exist.
 - This plan assumes the task module already provides a task form flow compatible with `TaskDraft.schedule` and can save both `oneTime` and `recurring` tasks. If the task module exposes different file names, keep the interfaces in this plan and adapt only the import paths.
 
 ---
@@ -67,7 +67,6 @@ import { getCalendarDayDetails, getCalendarMonthDays } from "./calendar";
 import type { AppState, Task } from "./types";
 
 const baseState: AppState = {
-  version: 2,
   tasks: [],
   categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
   assignees: [{ id: "person-ola", name: "Ola" }],
@@ -473,6 +472,7 @@ Create `src/state/taskerStore.test.ts`:
 
 ```ts
 import { beforeEach, describe, expect, it } from "vitest";
+import { STORAGE_KEY } from "../storage/taskerStorage";
 import { resetTaskerStore, useTaskerStore } from "./taskerStore";
 
 beforeEach(() => {
@@ -509,7 +509,7 @@ describe("taskerStore calendar state", () => {
       fromDate: "2026-07-08",
       toDate: "2026-07-20"
     });
-    expect(localStorage.getItem("tasker:v2")).toContain("2026-07-20");
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("2026-07-20");
   });
 });
 ```

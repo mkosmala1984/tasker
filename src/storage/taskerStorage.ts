@@ -9,7 +9,6 @@ export type LoadResult = {
 
 export function createEmptyState(): AppState {
   return {
-    version: 1,
     tasks: [],
     categories: [],
     assignees: [],
@@ -32,7 +31,6 @@ function isAppState(value: unknown): value is AppState {
   }
 
   return (
-    value.version === 1 &&
     isArrayProperty(value, "tasks") &&
     isArrayProperty(value, "categories") &&
     isArrayProperty(value, "assignees") &&
@@ -49,15 +47,12 @@ export function loadState(storage: Storage = window.localStorage): LoadResult {
 
   try {
     const parsed = JSON.parse(raw);
-    if (isRecord(parsed) && parsed.version !== 1) {
-      return { state: createEmptyState(), error: "Nieobsługiwana wersja lokalnych danych." };
-    }
     if (!isAppState(parsed)) {
-      return { state: createEmptyState(), error: "Nie można odczytać lokalnych danych." };
+      return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
     }
     return { state: parsed };
   } catch {
-    return { state: createEmptyState(), error: "Nie można odczytać lokalnych danych." };
+    return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
   }
 }
 

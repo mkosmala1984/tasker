@@ -3,7 +3,6 @@ import { buildTodayList } from "./todayList";
 import type { AppState } from "./types";
 
 const baseState: AppState = {
-  version: 1,
   tasks: [],
   categories: [{ id: "cat-home", name: "Dom" }],
   assignees: [{ id: "person-ola", name: "Ola" }],

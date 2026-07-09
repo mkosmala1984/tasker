@@ -4,7 +4,6 @@ import { buildTodayList } from "./todayList";
 import type { AppState } from "./types";
 
 const emptyState: AppState = {
-  version: 1,
   tasks: [],
   categories: [],
   assignees: [],

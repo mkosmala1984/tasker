@@ -74,7 +74,6 @@ import {
 import type { AppState, Task } from "./types";
 
 const state: AppState = {
-  version: 2,
   tasks: [],
   categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
   assignees: [{ id: "person-ola", name: "Ola" }],
@@ -516,7 +515,6 @@ import { TaskForm } from "../TaskForm";
 import type { AppState } from "../../domain/types";
 
 const state: AppState = {
-  version: 2,
   tasks: [],
   categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
   assignees: [{ id: "person-ola", name: "Ola" }],
@@ -1181,14 +1179,13 @@ Expected: no output and exit code 0.
 
 - [ ] **Step 1: Add test seed helper**
 
-In `src/App.test.tsx`, add helpers near existing test utilities:
+In `src/App.test.tsx`, import `STORAGE_KEY` from `./storage/taskerStorage`, then add helpers near existing test utilities:
 
 ```tsx
-function seedV2State() {
+function seedTaskState() {
   localStorage.setItem(
-    "tasker:v2",
+    STORAGE_KEY,
     JSON.stringify({
-      version: 2,
       tasks: [
         {
           id: "task-1",
@@ -1220,7 +1217,7 @@ Add this test:
 
 ```tsx
 it("creates a one-time task from the separate tasks view", async () => {
-  seedV2State();
+  seedTaskState();
   resetTaskerStore();
   renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
   const user = userEvent.setup();
@@ -1245,7 +1242,7 @@ Add this test:
 
 ```tsx
 it("edits a task into an every-N-days recurring task", async () => {
-  seedV2State();
+  seedTaskState();
   resetTaskerStore();
   renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
   const user = userEvent.setup();
@@ -1271,7 +1268,7 @@ Add this test:
 
 ```tsx
 it("deactivates a task from the tasks list without removing it", async () => {
-  seedV2State();
+  seedTaskState();
   resetTaskerStore();
   renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
   const user = userEvent.setup();
@@ -1290,7 +1287,7 @@ Add this test:
 
 ```tsx
 it("opens the separate editor from a Today task card", async () => {
-  seedV2State();
+  seedTaskState();
   resetTaskerStore();
   renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
   const user = userEvent.setup();

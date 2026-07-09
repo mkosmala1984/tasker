@@ -43,7 +43,6 @@ export type Postponement = {
 };
 
 export type AppState = {
-  version: 1;
   tasks: Task[];
   categories: Category[];
   assignees: Assignee[];

@@ -31,14 +31,14 @@ describe("taskerStorage", () => {
     const result = loadState(memoryStorage({ [STORAGE_KEY]: "{bad-json" }));
 
     expect(result.state).toEqual(createEmptyState());
-    expect(result.error).toBe("Nie można odczytać lokalnych danych.");
+    expect(result.error).toBe("Nie mozna odczytac lokalnych danych.");
   });
 
-  it("falls back to empty state for unknown version", () => {
-    const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: 2 }) }));
+  it("falls back to empty state for incomplete state shape", () => {
+    const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify({ tasks: [] }) }));
 
     expect(result.state).toEqual(createEmptyState());
-    expect(result.error).toBe("Nieobsługiwana wersja lokalnych danych.");
+    expect(result.error).toBe("Nie mozna odczytac lokalnych danych.");
   });
 
   it("loads a valid state", () => {
@@ -48,7 +48,7 @@ describe("taskerStorage", () => {
     expect(result.state).toEqual(state);
   });
 
-  it("saves state under a versioned key", () => {
+  it("saves state under the tasker storage key", () => {
     const storage = memoryStorage();
     const state = createEmptyState();
 

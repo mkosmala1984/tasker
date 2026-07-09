@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the foundation for Tasker's target local product by introducing the v2 data model, storage migration, extended filters, and a navigation shell for future feature modules.
+**Goal:** Build the foundation for Tasker's target local product by introducing the target data model, simplified storage shape, extended filters, and a navigation shell for future feature modules.
 
-**Architecture:** Keep domain logic under `src/domain/`, persistence under `src/storage/`, global state under `src/state/`, and UI composition under `src/App.tsx` plus focused components. This plan keeps the current Today workflow operational while adding model fields and navigation placeholders that future plans will implement. Storage writes a new `tasker:v2` payload and migrates existing `tasker:v1` data on load.
+**Architecture:** Keep domain logic under `src/domain/`, persistence under `src/storage/`, global state under `src/state/`, and UI composition under `src/App.tsx` plus focused components. This plan keeps the current Today workflow operational while adding model fields and navigation placeholders that future plans will implement. Storage continues to read and write one current Tasker payload without an AppState version field and without legacy conversion code.
 
 **Tech Stack:** React 19, TypeScript, Vite, Vitest, React Testing Library, Mantine, Zustand, browser `localStorage`.
 
@@ -15,16 +15,16 @@
 - Interface copy remains Polish.
 - Existing domain behavior for recurring tasks, overdue tasks, completion, postponement to tomorrow, filtering, and local persistence must keep working.
 - Use ASCII in source and docs unless the touched file already intentionally uses non-ASCII.
-- Do not implement full calendar, history, import/export, or configuration CRUD in this plan; add only foundation types, migration, navigation, and placeholders.
+- Do not implement full calendar, history, import/export, or configuration CRUD in this plan; add only foundation types, storage shape, navigation, and placeholders.
 
 ---
 
 ## File Structure
 
-- Modify `src/domain/types.ts`: introduce v2 model types for one-time and recurring task schedules, category colors, task types, priorities, extended filters, and navigation view names.
-- Modify `src/storage/taskerStorage.ts`: change active storage key to `tasker:v2`, load v2 state, migrate v1 state from `tasker:v1`, and keep safe fallbacks.
-- Modify `src/storage/taskerStorage.test.ts`: verify empty v2 state, v2 load/save, invalid data fallback, unknown v2 version fallback, and v1 migration.
-- Modify `src/domain/tasks.ts`: update add/update mutations to create v2 tasks while preserving category and assignee reuse.
+- Modify `src/domain/types.ts`: introduce target model types for one-time and recurring task schedules, category colors, task types, priorities, extended filters, and navigation view names.
+- Modify `src/storage/taskerStorage.ts`: load and save the current state shape, avoid AppState version checks, and keep safe fallbacks.
+- Modify `src/storage/taskerStorage.test.ts`: verify empty state, load/save, invalid JSON fallback, and incomplete shape fallback.
+- Modify `src/domain/tasks.ts`: update add/update mutations to create target-shape tasks while preserving category and assignee reuse.
 - Modify `src/domain/tasks.test.ts`: update existing task fixtures and add coverage for one-time tasks, category colors, task types, and priorities.
 - Modify `src/domain/todayList.ts`: derive scheduled date from v2 task schedule and support extended filters.
 - Modify `src/domain/todayList.test.ts`: update fixtures and add filter coverage for task type and priority.
@@ -35,13 +35,13 @@
 
 ---
 
-### Task 1: V2 Domain Types
+### Task 1: Target Domain Types
 
 **Files:**
 - Modify: `src/domain/types.ts`
 
 **Interfaces:**
-- Produces: `AppState` version `2`, `TaskSchedule`, `TaskMode`, `TaskType`, `Priority`, `AppView`, `TodayFilters`, `TaskDraft`.
+- Produces: `AppState`, `TaskSchedule`, `TaskMode`, `TaskType`, `Priority`, `AppView`, `TodayFilters`, `TaskDraft`.
 - Consumes: Existing recurrence rules and existing task domain functions.
 
 - [ ] **Step 1: Replace the shared domain types**
@@ -117,7 +117,6 @@ export type Postponement = {
 };
 
 export type AppState = {
-  version: 2;
   tasks: Task[];
   categories: Category[];
   assignees: Assignee[];
@@ -167,7 +166,7 @@ Run:
 npm run build
 ```
 
-Expected: FAIL with TypeScript errors in domain, storage, store, and components that still refer to `version: 1`, `task.recurrence`, `task.startDate`, and two-field `TodayFilters`.
+Expected: FAIL with TypeScript errors in domain, storage, store, and components that still refer to `task.recurrence`, `task.startDate`, and two-field `TodayFilters`.
 
 - [ ] **Step 3: Commit after later tasks only**
 
@@ -175,7 +174,7 @@ Do not commit yet. Task 1 intentionally breaks the build and is completed by Tas
 
 ---
 
-### Task 2: V2 Storage And V1 Migration
+### Task 2: Storage Without AppState Versioning
 
 **Files:**
 - Modify: `src/storage/taskerStorage.ts`
@@ -183,15 +182,15 @@ Do not commit yet. Task 1 intentionally breaks the build and is completed by Tas
 
 **Interfaces:**
 - Consumes: `AppState`, `Category`, `Priority`, `TaskType` from Task 1.
-- Produces: `STORAGE_KEY = "tasker:v2"`, `LEGACY_STORAGE_KEY = "tasker:v1"`, `createEmptyState(): AppState`, `loadState(storage?: Storage): LoadResult`, `saveState(state: AppState, storage?: Storage): void`.
+- Produces: `STORAGE_KEY`, `createEmptyState(): AppState`, `loadState(storage?: Storage): LoadResult`, `saveState(state: AppState, storage?: Storage): void`.
 
-- [ ] **Step 1: Replace storage tests with v2 and migration coverage**
+- [ ] **Step 1: Replace storage tests without AppState version coverage**
 
 Replace `src/storage/taskerStorage.test.ts` with:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { createEmptyState, LEGACY_STORAGE_KEY, loadState, saveState, STORAGE_KEY } from "./taskerStorage";
+import { createEmptyState, loadState, saveState, STORAGE_KEY } from "./taskerStorage";
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
   const data = new Map(Object.entries(initial));
@@ -212,79 +211,41 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe("taskerStorage", () => {
-  it("returns empty v2 state when storage has no data", () => {
+  it("returns empty state when storage has no data", () => {
     const result = loadState(memoryStorage());
 
     expect(result.state).toEqual(createEmptyState());
     expect(result.error).toBeUndefined();
   });
 
-  it("loads a valid v2 state", () => {
+  it("loads a valid state", () => {
     const state = createEmptyState();
     const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify(state) }));
 
     expect(result.state).toEqual(state);
   });
 
-  it("saves state under the v2 key", () => {
+  it("saves state under the tasker storage key", () => {
     const storage = memoryStorage();
     const state = createEmptyState();
 
     saveState(state, storage);
 
     expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(state));
-    expect(storage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
   });
 
-  it("falls back to empty state for invalid v2 JSON", () => {
+  it("falls back to empty state for invalid JSON", () => {
     const result = loadState(memoryStorage({ [STORAGE_KEY]: "{bad-json" }));
 
     expect(result.state).toEqual(createEmptyState());
     expect(result.error).toBe("Nie mozna odczytac lokalnych danych.");
   });
 
-  it("falls back to empty state for unknown v2 version", () => {
-    const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: 3 }) }));
+  it("falls back to empty state for incomplete state shape", () => {
+    const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify({ tasks: [] }) }));
 
     expect(result.state).toEqual(createEmptyState());
-    expect(result.error).toBe("Nieobslugiwana wersja lokalnych danych.");
-  });
-
-  it("migrates a valid v1 state into v2 defaults", () => {
-    const legacy = {
-      version: 1,
-      tasks: [
-        {
-          id: "task-1",
-          title: "Podlac rosliny",
-          categoryId: "cat-1",
-          assigneeId: "person-1",
-          recurrence: { type: "daily" },
-          startDate: "2026-07-05",
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
-      ],
-      categories: [{ id: "cat-1", name: "Dom" }],
-      assignees: [{ id: "person-1", name: "Ola" }],
-      completions: [],
-      postponements: []
-    };
-
-    const result = loadState(memoryStorage({ [LEGACY_STORAGE_KEY]: JSON.stringify(legacy) }));
-
-    expect(result.error).toBeUndefined();
-    expect(result.state.version).toBe(2);
-    expect(result.state.categories).toEqual([{ id: "cat-1", name: "Dom", color: "#228be6" }]);
-    expect(result.state.taskTypes).toEqual([{ id: "task-type-default", name: "Zadanie", active: true, order: 0 }]);
-    expect(result.state.priorities).toEqual([{ id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" }]);
-    expect(result.state.tasks[0]).toMatchObject({
-      id: "task-1",
-      taskTypeId: "task-type-default",
-      priorityId: "priority-normal",
-      schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } }
-    });
+    expect(result.error).toBe("Nie mozna odczytac lokalnych danych.");
   });
 });
 ```
@@ -297,24 +258,22 @@ Run:
 npm run test:run -- src/storage/taskerStorage.test.ts
 ```
 
-Expected: FAIL because `LEGACY_STORAGE_KEY`, v2 state, and migration do not exist yet.
+Expected: FAIL because the new state shape and storage defaults do not exist yet.
 
 - [ ] **Step 3: Replace storage implementation**
 
 Replace `src/storage/taskerStorage.ts` with:
 
 ```ts
-import type { AppState, Category, Priority, RecurrenceRule, Task, TaskType } from "../domain/types";
+import type { AppState, Priority, TaskType } from "../domain/types";
 
-export const STORAGE_KEY = "tasker:v2";
-export const LEGACY_STORAGE_KEY = "tasker:v1";
+export const STORAGE_KEY = "tasker:v1";
 
 export type LoadResult = {
   state: AppState;
   error?: string;
 };
 
-const DEFAULT_CATEGORY_COLOR = "#228be6";
 export const DEFAULT_TASK_TYPE_ID = "task-type-default";
 export const DEFAULT_PRIORITY_ID = "priority-normal";
 
@@ -328,7 +287,6 @@ export function createDefaultPriorities(): Priority[] {
 
 export function createEmptyState(): AppState {
   return {
-    version: 2,
     tasks: [],
     categories: [],
     assignees: [],
@@ -353,7 +311,6 @@ function isAppState(value: unknown): value is AppState {
   }
 
   return (
-    value.version === 2 &&
     isArrayProperty(value, "tasks") &&
     isArrayProperty(value, "categories") &&
     isArrayProperty(value, "assignees") &&
@@ -364,122 +321,18 @@ function isAppState(value: unknown): value is AppState {
   );
 }
 
-function isLegacyState(value: unknown): value is {
-  version: 1;
-  tasks: Array<{
-    id: string;
-    title: string;
-    categoryId: string;
-    assigneeId: string;
-    recurrence: RecurrenceRule;
-    startDate: string;
-    active: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }>;
-  categories: Array<{ id: string; name: string }>;
-  assignees: AppState["assignees"];
-  completions: AppState["completions"];
-  postponements: AppState["postponements"];
-} {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    value.version === 1 &&
-    isArrayProperty(value, "tasks") &&
-    isArrayProperty(value, "categories") &&
-    isArrayProperty(value, "assignees") &&
-    isArrayProperty(value, "completions") &&
-    isArrayProperty(value, "postponements")
-  );
-}
-
-function migrateCategory(category: { id: string; name: string }): Category {
-  return { ...category, color: DEFAULT_CATEGORY_COLOR };
-}
-
-function migrateTask(task: ReturnType<typeof assertLegacyTasks>[number]): Task {
-  return {
-    id: task.id,
-    title: task.title,
-    categoryId: task.categoryId,
-    assigneeId: task.assigneeId,
-    taskTypeId: DEFAULT_TASK_TYPE_ID,
-    priorityId: DEFAULT_PRIORITY_ID,
-    schedule: { mode: "recurring", startDate: task.startDate, recurrence: task.recurrence },
-    active: task.active,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt
-  };
-}
-
-function assertLegacyTasks(value: {
-  tasks: Array<{
-    id: string;
-    title: string;
-    categoryId: string;
-    assigneeId: string;
-    recurrence: RecurrenceRule;
-    startDate: string;
-    active: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }>;
-}) {
-  return value.tasks;
-}
-
-function migrateLegacyState(value: ReturnType<typeof narrowLegacyState>): AppState {
-  return {
-    version: 2,
-    tasks: assertLegacyTasks(value).map(migrateTask),
-    categories: value.categories.map(migrateCategory),
-    assignees: value.assignees,
-    taskTypes: createDefaultTaskTypes(),
-    priorities: createDefaultPriorities(),
-    completions: value.completions,
-    postponements: value.postponements
-  };
-}
-
-function narrowLegacyState(value: unknown) {
-  if (!isLegacyState(value)) {
-    throw new Error("Invalid legacy state");
-  }
-  return value;
-}
-
-function parseJson(raw: string): unknown {
-  return JSON.parse(raw);
-}
-
 export function loadState(storage: Storage = window.localStorage): LoadResult {
-  const rawV2 = storage.getItem(STORAGE_KEY);
-  if (rawV2 !== null) {
-    try {
-      const parsed = parseJson(rawV2);
-      if (isRecord(parsed) && parsed.version !== 2) {
-        return { state: createEmptyState(), error: "Nieobslugiwana wersja lokalnych danych." };
-      }
-      if (!isAppState(parsed)) {
-        return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
-      }
-      return { state: parsed };
-    } catch {
-      return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
-    }
-  }
-
-  const rawV1 = storage.getItem(LEGACY_STORAGE_KEY);
-  if (rawV1 === null) {
+  const raw = storage.getItem(STORAGE_KEY);
+  if (raw === null) {
     return { state: createEmptyState() };
   }
 
   try {
-    const parsed = narrowLegacyState(parseJson(rawV1));
-    return { state: migrateLegacyState(parsed) };
+    const parsed = JSON.parse(raw);
+    if (!isAppState(parsed)) {
+      return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
+    }
+    return { state: parsed };
   } catch {
     return { state: createEmptyState(), error: "Nie mozna odczytac lokalnych danych." };
   }
@@ -510,7 +363,7 @@ Expected: PASS.
 
 **Interfaces:**
 - Consumes: `TaskDraft`, `TaskSchedule`, `AppState`, `DEFAULT_TASK_TYPE_ID`, `DEFAULT_PRIORITY_ID`.
-- Produces: `addTask`, `updateTask`, `deactivateTask`, `completeTask`, `postponeTask` compatible with v2 tasks.
+- Produces: `addTask`, `updateTask`, `deactivateTask`, `completeTask`, `postponeTask` compatible with target-shape tasks.
 
 - [ ] **Step 1: Replace task mutation tests**
 
@@ -524,7 +377,6 @@ import { buildTodayList } from "./todayList";
 import type { AppState } from "./types";
 
 const emptyState: AppState = {
-  version: 2,
   tasks: [],
   categories: [],
   assignees: [],
@@ -983,7 +835,6 @@ import { buildTodayList } from "./todayList";
 import type { AppState, Task } from "./types";
 
 const baseState: AppState = {
-  version: 2,
   tasks: [],
   categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
   assignees: [{ id: "person-ola", name: "Ola" }],
@@ -1591,7 +1442,7 @@ Expected: commit succeeds and includes only foundation implementation files.
 
 ## Self-Review
 
-**Spec coverage:** This plan covers the foundation slice of the functional spec: local-only data, v2 versioned storage, one-time and recurring task data shape, categories with colors, task types, priorities, extended filters, Today as the start view, and navigation placeholders for Tasks, Calendar, Categories, Configuration, History, and Data. Full task CRUD UI, arbitrary-date postponement UI, calendar behavior, dictionary CRUD, history UI, import, and export are intentionally deferred to later plans.
+**Spec coverage:** This plan covers the foundation slice of the functional spec: local-only data, current storage without an AppState version field, one-time and recurring task data shape, categories with colors, task types, priorities, extended filters, Today as the start view, and navigation placeholders for Tasks, Calendar, Categories, Configuration, History, and Data. Full task CRUD UI, arbitrary-date postponement UI, calendar behavior, dictionary CRUD, history UI, import, and export are intentionally deferred to later plans.
 
 **Placeholder scan:** The plan contains no unresolved marker strings or open implementation steps. Placeholder UI text is intentional product scaffolding for future modules and is explicitly tested.
 

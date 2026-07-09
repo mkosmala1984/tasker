@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Baseline: the foundation v2 plan is complete, including `Task.schedule`, `TaskType`, `Priority`, four-field `TodayFilters`, and `tasker:v2` storage.
+- Baseline: the foundation plan is complete, including `Task.schedule`, `TaskType`, `Priority`, four-field `TodayFilters`, and current Tasker storage.
 - Baseline: the task module can create and edit one-time and recurring tasks with category, assignee, task type, priority, active flag, and date schedule.
 - Local-only application: no accounts, backend, synchronization, notifications, or backend date services.
 - Dates are calendar dates in `YYYY-MM-DD`, without time or timezone.
@@ -60,7 +60,6 @@ import type { AppState, Task, TodayFilters } from "./types";
 const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
 
 const baseState: AppState = {
-  version: 2,
   tasks: [],
   categories: [
     { id: "cat-home", name: "Dom", color: "#40c057" },
@@ -906,7 +905,6 @@ Add this test inside `describe("App", () => { ... })`:
 ```tsx
 it("filters today list by category, assignee, task type, and priority", async () => {
   seedState({
-    version: 2,
     tasks: [
       {
         id: "task-1",
@@ -1016,7 +1014,6 @@ Add this test:
 ```tsx
 it("keeps recurring completion cycle based on the actual completion date", async () => {
   seedState({
-    version: 2,
     tasks: [
       {
         id: "task-1",

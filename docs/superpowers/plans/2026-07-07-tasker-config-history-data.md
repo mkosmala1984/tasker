@@ -86,7 +86,6 @@ import {
 } from "./configuration";
 
 const baseState: AppState = {
-  version: 2,
   tasks: [],
   categories: [],
   assignees: [],
@@ -496,7 +495,6 @@ import { buildHistoryList, emptyHistoryFilters } from "./history";
 import type { AppState } from "./types";
 
 const state: AppState = {
-  version: 2,
   categories: [
     { id: "cat-home", name: "Dom", color: "#40c057" },
     { id: "cat-work", name: "Praca", color: "#228be6" }
@@ -732,7 +730,7 @@ Expected: PASS.
 **Interfaces:**
 - Consumes: `AppState` and `createEmptyState()` from `src/storage/taskerStorage.ts`.
 - Produces:
-  - `type BackupPayload = { app: "tasker"; exportedAt: string; schemaVersion: 2; state: AppState }`
+  - `type BackupPayload = { app: "tasker"; exportedAt: string; state: AppState }`
   - `type ImportPreview = { state: AppState; summary: ImportSummary }`
   - `type ImportSummary = { taskCount: number; categoryCount: number; assigneeCount: number; taskTypeCount: number; priorityCount: number; completionCount: number; postponementCount: number }`
   - `createExportPayload(state: AppState, exportedAt: string): BackupPayload`
@@ -749,14 +747,13 @@ import { createEmptyState } from "./taskerStorage";
 import { createExportPayload, parseImportPayload, serializeExportPayload } from "./taskerBackup";
 
 describe("taskerBackup", () => {
-  it("exports a complete v2 state inside a versioned payload", () => {
+  it("exports a complete state inside a Tasker payload", () => {
     const state = createEmptyState();
     const payload = createExportPayload(state, "2026-07-07T10:00:00.000Z");
 
     expect(payload).toEqual({
       app: "tasker",
       exportedAt: "2026-07-07T10:00:00.000Z",
-      schemaVersion: 2,
       state
     });
     expect(JSON.parse(serializeExportPayload(payload))).toEqual(payload);
@@ -806,14 +803,8 @@ describe("taskerBackup", () => {
     expect(() => parseImportPayload("{bad-json")).toThrow("Plik importu nie jest poprawnym JSON.");
   });
 
-  it("rejects unsupported backup versions", () => {
-    const raw = JSON.stringify({ app: "tasker", exportedAt: "2026-07-07T10:00:00.000Z", schemaVersion: 3, state: { version: 3 } });
-
-    expect(() => parseImportPayload(raw)).toThrow("Nieobslugiwana wersja pliku importu.");
-  });
-
   it("rejects incomplete state payloads", () => {
-    const raw = JSON.stringify({ app: "tasker", exportedAt: "2026-07-07T10:00:00.000Z", schemaVersion: 2, state: { version: 2 } });
+    const raw = JSON.stringify({ app: "tasker", exportedAt: "2026-07-07T10:00:00.000Z", state: { tasks: [] } });
 
     expect(() => parseImportPayload(raw)).toThrow("Plik importu nie zawiera kompletnych danych Tasker.");
   });
@@ -836,7 +827,6 @@ import type { AppState } from "../domain/types";
 export type BackupPayload = {
   app: "tasker";
   exportedAt: string;
-  schemaVersion: 2;
   state: AppState;
 };
 
@@ -863,13 +853,12 @@ function hasArray(value: Record<string, unknown>, key: string): boolean {
   return Array.isArray(value[key]);
 }
 
-function isV2State(value: unknown): value is AppState {
+function isAppState(value: unknown): value is AppState {
   if (!isRecord(value)) {
     return false;
   }
 
   return (
-    value.version === 2 &&
     hasArray(value, "tasks") &&
     hasArray(value, "categories") &&
     hasArray(value, "assignees") &&
@@ -893,7 +882,7 @@ function summarize(state: AppState): ImportSummary {
 }
 
 export function createExportPayload(state: AppState, exportedAt: string): BackupPayload {
-  return { app: "tasker", exportedAt, schemaVersion: 2, state };
+  return { app: "tasker", exportedAt, state };
 }
 
 export function serializeExportPayload(payload: BackupPayload): string {
@@ -912,11 +901,7 @@ export function parseImportPayload(raw: string): ImportPreview {
     throw new Error("Plik importu nie jest plikiem danych Tasker.");
   }
 
-  if (parsed.schemaVersion !== 2) {
-    throw new Error("Nieobslugiwana wersja pliku importu.");
-  }
-
-  if (!isV2State(parsed.state)) {
+  if (!isAppState(parsed.state)) {
     throw new Error("Plik importu nie zawiera kompletnych danych Tasker.");
   }
 
@@ -1107,7 +1092,7 @@ Expected: PASS.
 
 - [ ] **Step 1: Add failing UI tests for category and configuration views**
 
-Append to `src/App.test.tsx`:
+Import `STORAGE_KEY` from `./storage/taskerStorage`, then append to `src/App.test.tsx`:
 
 ```tsx
 it("manages categories from the Kategorie view", async () => {
@@ -1435,7 +1420,6 @@ Append to `src/App.test.tsx`:
 ```tsx
 it("shows completion history as a filterable list without statistics", async () => {
   const storedState = {
-    version: 2,
     categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
     assignees: [{ id: "person-ola", name: "Ola" }],
     taskTypes: [{ id: "type-task", name: "Zadanie", active: true, order: 0 }],
@@ -1457,7 +1441,7 @@ it("shows completion history as a filterable list without statistics", async () 
     completions: [{ id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-07", completedDate: "2026-07-07" }],
     postponements: []
   };
-  localStorage.setItem("tasker:v2", JSON.stringify(storedState));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(storedState));
   resetTaskerStore();
   renderApp();
   const user = userEvent.setup();
@@ -1839,12 +1823,12 @@ Expected: The implementation files from this plan are modified or created and re
 
 ## Self-Review
 
-**Spec coverage:** This plan covers UC-09 categories with colors, UC-10 task type and priority dictionaries, UC-12 completion history as a list with filters, UC-13 complete local export, and UC-14 import validation with summary and explicit confirmation. It also preserves navigation integration for categories, configuration, history, and data after the v2 foundation.
+**Spec coverage:** This plan covers UC-09 categories with colors, UC-10 task type and priority dictionaries, UC-12 completion history as a list with filters, UC-13 complete local export, and UC-14 import validation with summary and explicit confirmation. It also preserves navigation integration for categories, configuration, history, and data after the foundation plan.
 
 **Out-of-scope check:** The plan does not implement full task CRUD, Today list changes, arbitrary-date postponement UI, calendar behavior, statistics, reports, charts, accounts, backend, synchronization, or notifications. `tasks` and `calendar` remain navigation placeholders.
 
-**Import safety:** `parseImportPayload()` only returns a preview and never writes storage. The store writes imported state only through `applyImport(preview)`, which the UI calls only from the confirmation button. Invalid JSON, unsupported versions, and incomplete payloads surface errors while current storage remains untouched.
+**Import safety:** `parseImportPayload()` only returns a preview and never writes storage. The store writes imported state only through `applyImport(preview)`, which the UI calls only from the confirmation button. Invalid JSON and incomplete payloads surface errors while current storage remains untouched.
 
-**Type consistency:** Store actions use the same `CategoryInput`, `DictionaryInput`, `PriorityInput`, `HistoryFilters`, and `ImportPreview` types produced by earlier tasks. The backup schema uses `schemaVersion: 2` and wraps the complete `AppState` version `2` expected by the foundation storage.
+**Type consistency:** Store actions use the same `CategoryInput`, `DictionaryInput`, `PriorityInput`, `HistoryFilters`, and `ImportPreview` types produced by earlier tasks. The backup payload wraps the complete `AppState` shape expected by the foundation storage.
 
 **Placeholder scan:** There are no unresolved implementation markers. Product placeholder text appears only for out-of-scope `Zadania` and `Kalendarz` navigation views and is covered by regression tests.
