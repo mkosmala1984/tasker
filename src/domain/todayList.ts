@@ -1,6 +1,6 @@
 import { compareDates } from "./dates";
 import { getNextScheduledDate } from "./recurrence";
-import type { AppState, Assignee, Category, Completion, Priority, Task, TaskType, TodayFilters, TodayTask } from "./types";
+import type { AppState, Assignee, Category, Completion, Postponement, Priority, Task, TaskType, TodayFilters, TodayTask } from "./types";
 
 function getLatestCompletion(taskId: string, completions: Completion[]): Completion | undefined {
   return completions
@@ -25,8 +25,15 @@ export function getCurrentScheduledDate(task: Task, completions: Completion[]): 
   return getNextScheduledDate(latestCompletion.completedDate, task.schedule.recurrence);
 }
 
-function wasPostponedFromToday(state: AppState, taskId: string, today: string): boolean {
-  return state.postponements.some((postponement) => postponement.taskId === taskId && postponement.fromDate === today);
+function getLatestPostponement(taskId: string, postponements: Postponement[]): Postponement | undefined {
+  return postponements
+    .filter((postponement) => postponement.taskId === taskId)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+}
+
+function isHiddenByPostponement(state: AppState, taskId: string, today: string): boolean {
+  const latestPostponement = getLatestPostponement(taskId, state.postponements);
+  return latestPostponement !== undefined && compareDates(today, latestPostponement.toDate) < 0;
 }
 
 function findCategory(categories: Category[], id: string): Category {
@@ -46,11 +53,12 @@ function findPriority(priorities: Priority[], id: string): Priority {
 }
 
 function matchesFilters(task: Task, filters: TodayFilters): boolean {
-  const categoryMatches = filters.categoryId === "" || task.categoryId === filters.categoryId;
-  const assigneeMatches = filters.assigneeId === "" || task.assigneeId === filters.assigneeId;
-  const taskTypeMatches = filters.taskTypeId === "" || task.taskTypeId === filters.taskTypeId;
-  const priorityMatches = filters.priorityId === "" || task.priorityId === filters.priorityId;
-  return categoryMatches && assigneeMatches && taskTypeMatches && priorityMatches;
+  return (
+    (filters.categoryId === "" || task.categoryId === filters.categoryId) &&
+    (filters.assigneeId === "" || task.assigneeId === filters.assigneeId) &&
+    (filters.taskTypeId === "" || task.taskTypeId === filters.taskTypeId) &&
+    (filters.priorityId === "" || task.priorityId === filters.priorityId)
+  );
 }
 
 export function buildTodayList(state: AppState, today: string, filters: TodayFilters): TodayTask[] {
@@ -63,7 +71,7 @@ export function buildTodayList(state: AppState, today: string, filters: TodayFil
     }))
     .filter((item): item is { task: Task; scheduledDate: string } => item.scheduledDate !== undefined)
     .filter((item) => compareDates(item.scheduledDate, today) <= 0)
-    .filter((item) => !wasPostponedFromToday(state, item.task.id, today))
+    .filter((item) => !isHiddenByPostponement(state, item.task.id, today))
     .map((item) => ({
       task: item.task,
       category: findCategory(state.categories, item.task.categoryId),
