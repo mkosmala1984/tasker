@@ -50,7 +50,7 @@ describe("task form mapping", () => {
       recurrenceType: "daily",
       intervalDays: 2,
       categoryId: "cat-home",
-      assigneeId: "person-ola",
+      assigneeId: "",
       taskTypeId: DEFAULT_TASK_TYPE_ID,
       priorityId: "",
       active: true
@@ -111,6 +111,27 @@ describe("task form mapping", () => {
     });
   });
 
+  it("maps a task draft without an assignee to the unassigned placeholder", () => {
+    const draft = taskFormValuesToDraft(
+      {
+        title: "Zrobic przeglad",
+        mode: "oneTime",
+        oneTimeDate: "2026-07-12",
+        recurringStartDate: "2026-07-07",
+        recurrenceType: "daily",
+        intervalDays: 2,
+        categoryId: "cat-home",
+        assigneeId: "",
+        taskTypeId: DEFAULT_TASK_TYPE_ID,
+        priorityId: "",
+        active: true
+      },
+      state
+    );
+
+    expect(draft.assigneeName).toBe("Bez osoby");
+  });
+
   it("maps existing task into editable form values", () => {
     expect(
       taskToFormValues(
@@ -152,9 +173,30 @@ describe("task form mapping", () => {
       recurringStartDate: "Wybierz date startu.",
       intervalDays: "Liczba dni musi byc wieksza lub rowna 1.",
       categoryId: "Wybierz kategorie.",
-      assigneeId: "Wybierz osobe.",
       taskTypeId: "Wybierz typ zadania.",
       dictionary: "Brakuje aktywnych slownikow wymaganych do zapisania zadania."
     });
+  });
+
+  it("does not require an assignee to validate task form values", () => {
+    const errors = validateTaskFormValues(
+      {
+        title: "Zrobic przeglad",
+        mode: "oneTime",
+        oneTimeDate: "2026-07-12",
+        recurringStartDate: "2026-07-07",
+        recurrenceType: "daily",
+        intervalDays: 2,
+        categoryId: "cat-home",
+        assigneeId: "",
+        taskTypeId: DEFAULT_TASK_TYPE_ID,
+        priorityId: "",
+        active: true
+      },
+      state
+    );
+
+    expect(errors.assigneeId).toBeUndefined();
+    expect(errors.dictionary).toBeUndefined();
   });
 });

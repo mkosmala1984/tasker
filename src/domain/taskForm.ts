@@ -17,6 +17,8 @@ export type TaskFormValues = {
 
 export type TaskFormErrors = Partial<Record<keyof TaskFormValues | "dictionary", string>>;
 
+export const UNASSIGNED_ASSIGNEE_NAME = "Bez osoby";
+
 export const recurrenceOptions: Array<{ value: RecurrenceRule["type"]; label: string }> = [
   { value: "daily", label: "Codziennie" },
   { value: "everyNDays", label: "Co N dni" },
@@ -55,7 +57,7 @@ export function createEmptyTaskFormValues(state: AppState, today: string): TaskF
     recurrenceType: "daily",
     intervalDays: 2,
     categoryId: firstActive(state.categories)?.id ?? "",
-    assigneeId: firstActive(state.assignees)?.id ?? "",
+    assigneeId: "",
     taskTypeId: firstActive(state.taskTypes)?.id ?? "",
     priorityId: "",
     active: true
@@ -97,15 +99,12 @@ export function validateTaskFormValues(values: TaskFormValues, state: AppState):
   if (values.categoryId.length === 0) {
     errors.categoryId = "Wybierz kategorie.";
   }
-  if (values.assigneeId.length === 0) {
-    errors.assigneeId = "Wybierz osobe.";
-  }
   if (values.taskTypeId.length === 0) {
     errors.taskTypeId = "Wybierz typ zadania.";
   }
   if (
     state.categories.filter((category) => category.id === values.categoryId).length === 0 ||
-    state.assignees.filter((assignee) => assignee.id === values.assigneeId).length === 0 ||
+    (values.assigneeId.length > 0 && state.assignees.filter((assignee) => assignee.id === values.assigneeId).length === 0) ||
     state.taskTypes.filter((taskType) => taskType.id === values.taskTypeId).length === 0
   ) {
     errors.dictionary = "Brakuje aktywnych slownikow wymaganych do zapisania zadania.";
@@ -118,7 +117,7 @@ export function taskFormValuesToDraft(values: TaskFormValues, state: AppState): 
   const assignee = state.assignees.find((item) => item.id === values.assigneeId);
   const priorityId = values.priorityId || firstActive(state.priorities)?.id || DEFAULT_PRIORITY_ID;
 
-  if (!category || !assignee) {
+  if (!category || (values.assigneeId.length > 0 && !assignee)) {
     throw new Error("Task form references missing dictionary item");
   }
 
@@ -126,7 +125,7 @@ export function taskFormValuesToDraft(values: TaskFormValues, state: AppState): 
     title: values.title.trim(),
     categoryName: category.name,
     categoryColor: category.color,
-    assigneeName: assignee.name,
+    assigneeName: assignee?.name ?? UNASSIGNED_ASSIGNEE_NAME,
     taskTypeId: values.taskTypeId,
     priorityId,
     schedule:

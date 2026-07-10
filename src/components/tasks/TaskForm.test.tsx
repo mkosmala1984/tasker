@@ -38,6 +38,7 @@ describe("TaskForm", () => {
 
     await user.type(screen.getByLabelText("Nazwa zadania"), "Zaplacic rachunek");
     await user.selectOptions(screen.getByLabelText("Typ zadania"), "type-deadline");
+    await user.selectOptions(screen.getByLabelText("Osoba"), "person-ola");
     await user.selectOptions(screen.getByLabelText("Priorytet"), "priority-high");
     await user.clear(screen.getByLabelText("Data zadania"));
     await user.type(screen.getByLabelText("Data zadania"), "2026-07-12");
@@ -53,6 +54,21 @@ describe("TaskForm", () => {
       schedule: { mode: "oneTime", date: "2026-07-12" },
       active: true
     });
+  });
+
+  it("submits a one-time task draft without a selected assignee", async () => {
+    const user = userEvent.setup();
+    const onSubmit = renderForm();
+
+    await user.type(screen.getByLabelText("Nazwa zadania"), "Zrobic przeglad");
+    await user.click(screen.getByRole("button", { name: "Zapisz zadanie" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Zrobic przeglad",
+        assigneeName: "Bez osoby"
+      })
+    );
   });
 
   it("shows recurrence controls only for recurring tasks", async () => {

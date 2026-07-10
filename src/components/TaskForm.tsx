@@ -6,6 +6,7 @@ import {
   recurrenceOptions,
   taskFormValuesToDraft,
   taskToFormValues,
+  UNASSIGNED_ASSIGNEE_NAME,
   validateTaskFormValues,
   type TaskFormErrors,
   type TaskFormValues
@@ -30,6 +31,10 @@ function activeOptions<T extends { id: string; name: string; active?: boolean; o
 
 function priorityOptions(state: AppState) {
   return [{ value: "", label: "Domyslny priorytet" }, ...activeOptions(state.priorities)];
+}
+
+function assigneeOptions(state: AppState) {
+  return [{ value: "", label: UNASSIGNED_ASSIGNEE_NAME }, ...activeOptions(state.assignees)];
 }
 
 function hasErrors(errors: TaskFormErrors): boolean {
@@ -162,10 +167,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
         <NativeSelect
           label="Osoba"
           aria-label="Osoba"
-          required
           value={values.assigneeId}
           error={errors.assigneeId}
-          data={activeOptions(state.assignees)}
+          data={assigneeOptions(state)}
           onChange={(event) => setValues({ ...values, assigneeId: event.currentTarget.value })}
         />
 
