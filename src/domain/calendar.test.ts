@@ -125,4 +125,36 @@ describe("calendar domain", () => {
       isPostponed: true
     });
   });
+
+  it("does not duplicate a recurring task on the date it was postponed to", () => {
+    const state: AppState = {
+      ...baseState,
+      tasks: [
+        task({
+          title: "Kuchnia",
+          schedule: { mode: "recurring", startDate: "2026-07-10", recurrence: { type: "daily" } }
+        })
+      ],
+      postponements: [
+        {
+          id: "postponement-1",
+          taskId: "task-1",
+          fromDate: "2026-07-10",
+          toDate: "2026-07-11",
+          createdAt: "2026-07-10T13:42:32.772Z"
+        }
+      ]
+    };
+
+    const days = getCalendarMonthDays(state, "2026-07-01", "2026-07-10");
+    const day = days.find((item) => item.date === "2026-07-11");
+
+    expect(day?.items).toHaveLength(1);
+    expect(day?.items[0]).toMatchObject({
+      scheduledDate: "2026-07-10",
+      displayDate: "2026-07-11",
+      isPostponed: true
+    });
+    expect(getCalendarDayDetails(state, "2026-07-11").items).toHaveLength(1);
+  });
 });

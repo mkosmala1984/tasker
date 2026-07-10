@@ -60,15 +60,19 @@ function latestPostponementFor(taskId: string, scheduledDate: string, postponeme
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
 }
 
-function pushOccurrence(items: CalendarTaskItem[], state: AppState, task: Task, scheduledDate: string, kind: CalendarTaskKind) {
+function createOccurrence(state: AppState, task: Task, scheduledDate: string, kind: CalendarTaskKind): CalendarTaskItem {
   const postponement = latestPostponementFor(task.id, scheduledDate, state.postponements);
-  items.push({
+  return {
     task,
     scheduledDate,
     displayDate: postponement?.toDate ?? scheduledDate,
     kind,
     isPostponed: postponement !== undefined
-  });
+  };
+}
+
+function pushOccurrence(items: CalendarTaskItem[], state: AppState, task: Task, scheduledDate: string, kind: CalendarTaskKind) {
+  items.push(createOccurrence(state, task, scheduledDate, kind));
 }
 
 function collectTaskItems(state: AppState, rangeStart: string, rangeEnd: string): CalendarTaskItem[] {
@@ -87,10 +91,16 @@ function collectTaskItems(state: AppState, rangeStart: string, rangeEnd: string)
 
     let scheduledDate = firstScheduledDate;
     while (compareDates(scheduledDate, rangeEnd) <= 0) {
-      if (compareDates(scheduledDate, rangeStart) >= 0) {
-        pushOccurrence(items, state, task, scheduledDate, "recurring");
+      const occurrence = createOccurrence(state, task, scheduledDate, "recurring");
+      if (compareDates(occurrence.displayDate, rangeStart) >= 0) {
+        items.push(occurrence);
       }
-      scheduledDate = getNextScheduledDate(scheduledDate, task.schedule.recurrence);
+
+      let nextScheduledDate = getNextScheduledDate(scheduledDate, task.schedule.recurrence);
+      while (occurrence.isPostponed && compareDates(nextScheduledDate, occurrence.displayDate) <= 0) {
+        nextScheduledDate = getNextScheduledDate(nextScheduledDate, task.schedule.recurrence);
+      }
+      scheduledDate = nextScheduledDate;
     }
   }
 
