@@ -230,4 +230,67 @@ describe("task mutations", () => {
       }
     ]);
   });
+
+  it("postpones a task to an arbitrary date without recording completion", () => {
+    const state: AppState = {
+      ...emptyState,
+      tasks: [
+        {
+          id: "task-1",
+          title: "Podlac rosliny",
+          categoryId: "cat-1",
+          assigneeId: "person-1",
+          taskTypeId: DEFAULT_TASK_TYPE_ID,
+          priorityId: DEFAULT_PRIORITY_ID,
+          schedule: { mode: "oneTime", date: "2026-07-03" },
+          active: true,
+          createdAt: "2026-07-03T08:00:00.000Z",
+          updatedAt: "2026-07-03T08:00:00.000Z"
+        }
+      ]
+    };
+
+    const next = postponeTask(state, "task-1", "2026-07-03", "2026-07-12", "2026-07-05T08:00:00.000Z", ids("postponement-1"));
+
+    expect(next.postponements).toEqual([
+      {
+        id: "postponement-1",
+        taskId: "task-1",
+        fromDate: "2026-07-03",
+        toDate: "2026-07-12",
+        createdAt: "2026-07-05T08:00:00.000Z"
+      }
+    ]);
+    expect(next.completions).toEqual([]);
+  });
+
+  it("rejects empty target postponement date", () => {
+    expect(() => postponeTask(emptyState, "task-1", "2026-07-03", "", "2026-07-05T08:00:00.000Z")).toThrow("toDate is required");
+  });
+
+  it("keeps recurring completion based on the actual completion date", () => {
+    const state: AppState = {
+      ...emptyState,
+      tasks: [
+        {
+          id: "task-1",
+          title: "Przeglad",
+          categoryId: "cat-1",
+          assigneeId: "person-1",
+          taskTypeId: DEFAULT_TASK_TYPE_ID,
+          priorityId: DEFAULT_PRIORITY_ID,
+          schedule: { mode: "recurring", startDate: "2026-07-01", recurrence: { type: "weekly" } },
+          active: true,
+          createdAt: "2026-07-01T08:00:00.000Z",
+          updatedAt: "2026-07-01T08:00:00.000Z"
+        }
+      ]
+    };
+
+    const completed = completeTask(state, "task-1", "2026-07-01", "2026-07-03", ids("completion-1"));
+    const todayList = buildTodayList(completed, "2026-07-10", { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" });
+
+    expect(completed.completions[0]).toMatchObject({ scheduledDate: "2026-07-01", completedDate: "2026-07-03" });
+    expect(todayList[0].scheduledDate).toBe("2026-07-10");
+  });
 });

@@ -61,7 +61,8 @@ export type TaskerStore = {
   updateTask: (taskId: string, draft: TaskDraft, now?: Date) => void;
   deactivateTask: (taskId: string, now?: Date) => void;
   completeTask: (taskId: string, scheduledDate: string, now?: Date) => void;
-  postponeTask: (taskId: string, now?: Date) => void;
+  postponeTask: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
+  postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
   reset: () => void;
 };
 
@@ -140,9 +141,12 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
     const today = getTodayString(now);
     set(persist(completeTask(get().state, taskId, scheduledDate, today)));
   },
-  postponeTask: (taskId, now = new Date()) => {
+  postponeTask: (taskId, scheduledDate, toDate, now = new Date()) => {
+    set(persist(postponeTask(get().state, taskId, scheduledDate, toDate, now.toISOString())));
+  },
+  postponeTaskToTomorrow: (taskId, scheduledDate, now = new Date()) => {
     const today = getTodayString(now);
-    set(persist(postponeTask(get().state, taskId, today, addDays(today, 1), now.toISOString())));
+    set(persist(postponeTask(get().state, taskId, scheduledDate, addDays(today, 1), now.toISOString())));
   },
   reset: () => set(loadInitialStoreState())
 }));

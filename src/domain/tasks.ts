@@ -52,6 +52,13 @@ function requireText(value: string, label: string): string {
   return normalized;
 }
 
+function requireDate(value: string, label: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${label} is required`);
+  }
+  return value;
+}
+
 function firstActiveTaskTypeId(state: AppState): string {
   return state.taskTypes.find((item) => item.active)?.id ?? DEFAULT_TASK_TYPE_ID;
 }
@@ -164,6 +171,9 @@ export function postponeTask(
   createdAt: string,
   idFactory: IdFactory = defaultIdFactory
 ): AppState {
+  const from = requireDate(fromDate, "fromDate");
+  const to = requireDate(toDate, "toDate");
+
   return {
     ...state,
     postponements: [
@@ -171,8 +181,8 @@ export function postponeTask(
       {
         id: idFactory(),
         taskId,
-        fromDate,
-        toDate,
+        fromDate: from,
+        toDate: to,
         createdAt
       }
     ]

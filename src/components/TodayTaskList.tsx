@@ -1,17 +1,22 @@
 import { Button, Paper, Stack, Text, Title } from "@mantine/core";
-import type { TodayTask } from "../domain/types";
+import type { Assignee, Category, Priority, TaskType, TodayTask } from "../domain/types";
 import { TodayTaskCard } from "./TodayTaskCard";
 
 type Props = {
   tasks: TodayTask[];
+  categories: Category[];
+  assignees: Assignee[];
+  taskTypes: TaskType[];
+  priorities: Priority[];
   onAdd: () => void;
   onComplete: (taskId: string, scheduledDate: string) => void;
-  onPostpone: (taskId: string) => void;
+  onPostponeTomorrow: (taskId: string, scheduledDate: string) => void;
+  onPostponeToDate: (taskId: string, scheduledDate: string, toDate: string) => void;
   onDeactivate: (taskId: string) => void;
   onEdit: (taskId: string) => void;
 };
 
-export function TodayTaskList({ tasks, onAdd, onComplete, onPostpone, onDeactivate, onEdit }: Props) {
+export function TodayTaskList({ tasks, onAdd, onComplete, onPostponeTomorrow, onPostponeToDate, onDeactivate, onEdit }: Props) {
   if (tasks.length === 0) {
     return (
       <Paper component="section" withBorder p="lg" radius="md">
@@ -33,7 +38,8 @@ export function TodayTaskList({ tasks, onAdd, onComplete, onPostpone, onDeactiva
           key={item.task.id}
           item={item}
           onComplete={onComplete}
-          onPostpone={onPostpone}
+          onPostponeTomorrow={onPostponeTomorrow}
+          onPostponeToDate={onPostponeToDate}
           onDeactivate={onDeactivate}
           onEdit={onEdit}
         />

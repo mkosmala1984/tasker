@@ -42,6 +42,7 @@ export default function App({ now = new Date() }: Props) {
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
   const postponeTask = useTaskerStore((store) => store.postponeTask);
+  const postponeTaskToTomorrow = useTaskerStore((store) => store.postponeTaskToTomorrow);
   const openTaskCreate = useTaskerStore((store) => store.openTaskCreate);
   const openTaskEdit = useTaskerStore((store) => store.openTaskEdit);
   const today = getTodayString(now);
@@ -63,8 +64,12 @@ export default function App({ now = new Date() }: Props) {
     completeTask(taskId, scheduledDate, now);
   }
 
-  function handlePostponeTask(taskId: string) {
-    postponeTask(taskId, now);
+  function handlePostponeTaskToTomorrow(taskId: string, scheduledDate: string) {
+    postponeTaskToTomorrow(taskId, scheduledDate, now);
+  }
+
+  function handlePostponeTaskToDate(taskId: string, scheduledDate: string, toDate: string) {
+    postponeTask(taskId, scheduledDate, toDate, now);
   }
 
   function PlaceholderView({ title, description }: { title: string; description: string }) {
@@ -134,15 +139,22 @@ export default function App({ now = new Date() }: Props) {
               <TaskFilters
                 categories={state.categories}
                 assignees={state.assignees}
+                taskTypes={state.taskTypes}
+                priorities={state.priorities}
                 filters={filters}
                 onChange={setFilters}
               />
 
               <TodayTaskList
                 tasks={todayTasks}
+                categories={state.categories}
+                assignees={state.assignees}
+                taskTypes={state.taskTypes}
+                priorities={state.priorities}
                 onAdd={handleCreateTask}
                 onComplete={handleCompleteTask}
-                onPostpone={handlePostponeTask}
+                onPostponeTomorrow={handlePostponeTaskToTomorrow}
+                onPostponeToDate={handlePostponeTaskToDate}
                 onDeactivate={handleDeactivateTask}
                 onEdit={openTaskEdit}
               />
