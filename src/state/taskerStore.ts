@@ -37,10 +37,12 @@ export type TaskerStore = {
   filters: TodayFilters;
   historyFilters: HistoryFilters;
   view: AppView;
+  selectedCalendarDate: string;
   taskEditorTaskId?: string | null;
   setFilters: (filters: TodayFilters) => void;
   setHistoryFilters: (filters: HistoryFilters) => void;
   setView: (view: AppView) => void;
+  setSelectedCalendarDate: (date: string) => void;
   openTaskCreate: () => void;
   openTaskEdit: (taskId: string) => void;
   closeTaskEditor: () => void;
@@ -62,18 +64,21 @@ export type TaskerStore = {
   deactivateTask: (taskId: string, now?: Date) => void;
   completeTask: (taskId: string, scheduledDate: string, now?: Date) => void;
   postponeTask: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
+  postponeTaskToDate: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
   postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
   reset: () => void;
 };
 
 function loadInitialStoreState() {
   const initial = loadState();
+  const today = getTodayString();
   return {
     state: initial.state,
     storageError: initial.error,
     filters: emptyFilters,
     historyFilters: emptyHistoryFilters,
     view: "today" as AppView,
+    selectedCalendarDate: today,
     taskEditorTaskId: undefined
   };
 }
@@ -88,6 +93,7 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   setFilters: (filters) => set({ filters }),
   setHistoryFilters: (historyFilters) => set({ historyFilters }),
   setView: (view) => set({ view, taskEditorTaskId: undefined }),
+  setSelectedCalendarDate: (selectedCalendarDate) => set({ selectedCalendarDate }),
   openTaskCreate: () => set({ view: "tasks", taskEditorTaskId: null }),
   openTaskEdit: (taskId) => set({ view: "tasks", taskEditorTaskId: taskId }),
   closeTaskEditor: () => set({ taskEditorTaskId: undefined }),
@@ -142,6 +148,9 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
     set(persist(completeTask(get().state, taskId, scheduledDate, today)));
   },
   postponeTask: (taskId, scheduledDate, toDate, now = new Date()) => {
+    set(persist(postponeTask(get().state, taskId, scheduledDate, toDate, now.toISOString())));
+  },
+  postponeTaskToDate: (taskId, scheduledDate, toDate, now = new Date()) => {
     set(persist(postponeTask(get().state, taskId, scheduledDate, toDate, now.toISOString())));
   },
   postponeTaskToTomorrow: (taskId, scheduledDate, now = new Date()) => {

@@ -54,8 +54,11 @@ function requireText(value: string, label: string): string {
 }
 
 function requireDate(value: string, label: string): string {
-  if (!isDateString(value)) {
+  if (value.trim().length === 0) {
     throw new Error(`${label} is required`);
+  }
+  if (!isDateString(value)) {
+    throw new Error(`${label} must be a valid calendar date`);
   }
   return value;
 }

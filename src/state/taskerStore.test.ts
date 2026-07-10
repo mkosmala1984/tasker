@@ -45,3 +45,41 @@ describe("taskerStore configuration and import actions", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toContain("Praca");
   });
 });
+
+describe("taskerStore calendar state", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetTaskerStore();
+  });
+
+  it("stores the selected calendar date", () => {
+    useTaskerStore.getState().setSelectedCalendarDate("2026-07-20");
+
+    expect(useTaskerStore.getState().selectedCalendarDate).toBe("2026-07-20");
+  });
+
+  it("postpones a task to an arbitrary date and persists the change", () => {
+    useTaskerStore.getState().addTask(
+      {
+        title: "Podlac rosliny",
+        categoryName: "Dom",
+        assigneeName: "Ola",
+        schedule: { mode: "oneTime", date: "2026-07-08" },
+        active: true
+      },
+      new Date("2026-07-05T08:00:00.000Z")
+    );
+
+    const taskId = useTaskerStore.getState().state.tasks[0].id;
+    useTaskerStore
+      .getState()
+      .postponeTaskToDate(taskId, "2026-07-08", "2026-07-20", new Date("2026-07-08T08:00:00.000Z"));
+
+    expect(useTaskerStore.getState().state.postponements[0]).toMatchObject({
+      taskId,
+      fromDate: "2026-07-08",
+      toDate: "2026-07-20"
+    });
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("2026-07-20");
+  });
+});
