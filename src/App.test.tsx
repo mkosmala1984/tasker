@@ -52,6 +52,11 @@ async function addDailyTask(title: string, category: string, assignee: string) {
   await user.click(within(form).getByRole("button", { name: "Zapisz" }));
 }
 
+function seedState(state: unknown) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  resetTaskerStore();
+}
+
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -113,25 +118,125 @@ describe("App", () => {
 
     expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
     const stored = localStorage.getItem(STORAGE_KEY) ?? "";
-    expect(stored).toContain("postponements");
+    expect(stored).toContain('"postponements"');
+    expect(stored).toContain('"toDate":"2026-07-06"');
     expect(stored).not.toContain("completedDate");
   });
 
-  it("filters today list by category and assignee", async () => {
+  it("filters today list by category, assignee, task type, and priority", async () => {
+    seedState({
+      tasks: [
+        {
+          id: "task-1",
+          title: "Dom Oli",
+          categoryId: "cat-home",
+          assigneeId: "person-ola",
+          taskTypeId: "type-task",
+          priorityId: "priority-normal",
+          schedule: { mode: "oneTime", date: "2026-07-05" },
+          active: true,
+          createdAt: "2026-07-05T08:00:00.000Z",
+          updatedAt: "2026-07-05T08:00:00.000Z"
+        },
+        {
+          id: "task-2",
+          title: "Praca Jana",
+          categoryId: "cat-work",
+          assigneeId: "person-jan",
+          taskTypeId: "type-deadline",
+          priorityId: "priority-high",
+          schedule: { mode: "oneTime", date: "2026-07-05" },
+          active: true,
+          createdAt: "2026-07-05T08:00:00.000Z",
+          updatedAt: "2026-07-05T08:00:00.000Z"
+        }
+      ],
+      categories: [
+        { id: "cat-home", name: "Dom", color: "#40c057" },
+        { id: "cat-work", name: "Praca", color: "#228be6" }
+      ],
+      assignees: [
+        { id: "person-ola", name: "Ola" },
+        { id: "person-jan", name: "Jan" }
+      ],
+      taskTypes: [
+        { id: "type-task", name: "Zadanie", active: true, order: 0 },
+        { id: "type-deadline", name: "Termin", active: true, order: 1 }
+      ],
+      priorities: [
+        { id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" },
+        { id: "priority-high", name: "Wysoki", active: true, order: 1, color: "#fa5252" }
+      ],
+      completions: [],
+      postponements: []
+    });
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Dom Oli", "Dom", "Ola");
-    await addDailyTask("Praca Jana", "Praca", "Jan");
 
     const filters = screen.getByRole("region", { name: "Filtry" });
     await user.click(within(filters).getByRole("radio", { name: "Praca" }));
-    const assigneeFilter = within(filters).getByLabelText("Osoba");
-    await user.click(assigneeFilter);
+    await user.click(within(filters).getByLabelText("Osoba"));
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    await user.click(within(filters).getByLabelText("Typ"));
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    await user.click(within(filters).getByLabelText("Priorytet"));
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const list = screen.getByRole("region", { name: "Zadania na dzisiaj" });
     expect(within(list).getByRole("heading", { name: "Praca Jana" })).toBeInTheDocument();
     expect(within(list).queryByRole("heading", { name: "Dom Oli" })).not.toBeInTheDocument();
+  });
+
+  it("postpones a task to a selected date without recording completion", async () => {
+    renderApp();
+    const user = userEvent.setup();
+    await addDailyTask("Podlac rosliny", "Dom", "Ola");
+
+    await user.type(screen.getByLabelText("Data odlozenia: Podlac rosliny"), "2026-07-12");
+    await user.click(screen.getByRole("button", { name: "Odloz do daty" }));
+
+    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
+    const stored = localStorage.getItem(STORAGE_KEY) ?? "";
+    expect(stored).toContain('"fromDate":"2026-07-05"');
+    expect(stored).toContain('"toDate":"2026-07-12"');
+    expect(stored).not.toContain("completedDate");
+  });
+
+  it("keeps recurring completion cycle based on the actual completion date", async () => {
+    seedState({
+      tasks: [
+        {
+          id: "task-1",
+          title: "Przeglad",
+          categoryId: "cat-home",
+          assigneeId: "person-ola",
+          taskTypeId: "type-task",
+          priorityId: "priority-normal",
+          schedule: { mode: "recurring", startDate: "2026-07-01", recurrence: { type: "weekly" } },
+          active: true,
+          createdAt: "2026-07-01T08:00:00.000Z",
+          updatedAt: "2026-07-01T08:00:00.000Z"
+        }
+      ],
+      categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
+      assignees: [{ id: "person-ola", name: "Ola" }],
+      taskTypes: [{ id: "type-task", name: "Zadanie", active: true, order: 0 }],
+      priorities: [{ id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" }],
+      completions: [],
+      postponements: []
+    });
+    render(
+      <MantineProvider>
+        <App now={new Date(2026, 6, 3, 9, 0)} />
+      </MantineProvider>
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Wykonane" }));
+
+    const stored = localStorage.getItem(STORAGE_KEY) ?? "";
+    expect(stored).toContain('"scheduledDate":"2026-07-01"');
+    expect(stored).toContain('"completedDate":"2026-07-03"');
   });
 
   it("edits an existing task in the separate editor and deactivates it from the list", async () => {
