@@ -5,14 +5,16 @@ import { TaskForm } from "../TaskForm";
 type Props = {
   state: AppState;
   today: string;
+  initialDate?: string;
   taskId?: string | null;
   onCreate: (draft: TaskDraft) => void;
   onUpdate: (taskId: string, draft: TaskDraft) => void;
   onCancel: () => void;
 };
 
-export function TaskEditorView({ state, today, taskId, onCreate, onUpdate, onCancel }: Props) {
+export function TaskEditorView({ state, today, initialDate, taskId, onCreate, onUpdate, onCancel }: Props) {
   const task = taskId ? state.tasks.find((item) => item.id === taskId) : undefined;
+  const createDate = initialDate ?? today;
 
   if (taskId && !task) {
     return (
@@ -37,7 +39,7 @@ export function TaskEditorView({ state, today, taskId, onCreate, onUpdate, onCan
       </Group>
       <TaskForm
         state={state}
-        today={today}
+        today={task ? today : createDate}
         task={task}
         submitLabel={task ? "Zapisz zmiany" : "Zapisz zadanie"}
         onCancel={onCancel}

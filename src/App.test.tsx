@@ -92,10 +92,23 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Kalendarz" }));
     expect(screen.getByRole("heading", { name: "Kalendarz" })).toBeInTheDocument();
-    expect(screen.getByText("Tutaj powstanie widok planowania zadan wedlug dat.")).toBeInTheDocument();
+    expect(screen.getByText("Planowanie zadan wedlug dat")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Wtorek, 7 lipca 2026/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
     expect(screen.getByRole("heading", { name: "Konfiguracja zadan" })).toBeInTheDocument();
+  });
+
+  it("opens the task flow with a calendar-selected date", async () => {
+    renderApp({ now: new Date("2026-07-07T08:00:00.000Z") });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Kalendarz" }));
+    await user.click(screen.getByRole("button", { name: /^Środa, 8 lipca 2026/ }));
+    await user.click(screen.getByRole("button", { name: "Dodaj zadanie na ten dzien" }));
+
+    expect(screen.getByRole("heading", { name: "Dodaj zadanie" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2026-07-08")).toBeInTheDocument();
   });
 
   it("marks a task as complete and removes it from today", async () => {
@@ -428,6 +441,6 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Kalendarz" }));
     expect(screen.getByRole("heading", { name: "Kalendarz" })).toBeInTheDocument();
-    expect(screen.getByText("Tutaj powstanie widok planowania zadan wedlug dat.")).toBeInTheDocument();
+    expect(screen.getByText("Planowanie zadan wedlug dat")).toBeInTheDocument();
   });
 });

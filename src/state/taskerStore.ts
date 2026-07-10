@@ -39,11 +39,12 @@ export type TaskerStore = {
   view: AppView;
   selectedCalendarDate: string;
   taskEditorTaskId?: string | null;
+  taskEditorInitialDate?: string;
   setFilters: (filters: TodayFilters) => void;
   setHistoryFilters: (filters: HistoryFilters) => void;
   setView: (view: AppView) => void;
   setSelectedCalendarDate: (date: string) => void;
-  openTaskCreate: () => void;
+  openTaskCreate: (initialDate?: string) => void;
   openTaskEdit: (taskId: string) => void;
   closeTaskEditor: () => void;
   addCategory: (input: CategoryInput) => void;
@@ -79,7 +80,8 @@ function loadInitialStoreState() {
     historyFilters: emptyHistoryFilters,
     view: "today" as AppView,
     selectedCalendarDate: today,
-    taskEditorTaskId: undefined
+    taskEditorTaskId: undefined,
+    taskEditorInitialDate: undefined
   };
 }
 
@@ -92,11 +94,11 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   ...loadInitialStoreState(),
   setFilters: (filters) => set({ filters }),
   setHistoryFilters: (historyFilters) => set({ historyFilters }),
-  setView: (view) => set({ view, taskEditorTaskId: undefined }),
+  setView: (view) => set({ view, taskEditorTaskId: undefined, taskEditorInitialDate: undefined }),
   setSelectedCalendarDate: (selectedCalendarDate) => set({ selectedCalendarDate }),
-  openTaskCreate: () => set({ view: "tasks", taskEditorTaskId: null }),
-  openTaskEdit: (taskId) => set({ view: "tasks", taskEditorTaskId: taskId }),
-  closeTaskEditor: () => set({ taskEditorTaskId: undefined }),
+  openTaskCreate: (taskEditorInitialDate) => set({ view: "tasks", taskEditorTaskId: null, taskEditorInitialDate }),
+  openTaskEdit: (taskId) => set({ view: "tasks", taskEditorTaskId: taskId, taskEditorInitialDate: undefined }),
+  closeTaskEditor: () => set({ taskEditorTaskId: undefined, taskEditorInitialDate: undefined }),
   addCategory: (input) => {
     set(persist(addCategoryDomain(get().state, input, () => createId("category"))));
   },

@@ -11,6 +11,7 @@ type Props = {
 export function TasksModuleView({ today }: Props) {
   const state = useTaskerStore((store) => store.state);
   const taskEditorTaskId = useTaskerStore((store) => store.taskEditorTaskId);
+  const taskEditorInitialDate = useTaskerStore((store) => store.taskEditorInitialDate);
   const openTaskCreate = useTaskerStore((store) => store.openTaskCreate);
   const openTaskEdit = useTaskerStore((store) => store.openTaskEdit);
   const closeTaskEditor = useTaskerStore((store) => store.closeTaskEditor);
@@ -34,6 +35,7 @@ export function TasksModuleView({ today }: Props) {
         <TaskEditorView
           state={state}
           today={today}
+          initialDate={taskEditorInitialDate}
           taskId={taskEditorTaskId}
           onCreate={handleCreate}
           onUpdate={handleUpdate}

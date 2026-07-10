@@ -1,5 +1,6 @@
 import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import { CategoryManager } from "./components/CategoryManager";
+import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
 import { DictionaryManager } from "./components/DictionaryManager";
 import { HistoryView } from "./components/HistoryView";
@@ -52,6 +53,14 @@ export default function App({ now = new Date() }: Props) {
     openTaskCreate();
   }
 
+  function handleCreateTaskForDate(date: string) {
+    openTaskCreate(date);
+  }
+
+  function handleEditTaskFromCalendar(taskId: string) {
+    openTaskEdit(taskId);
+  }
+
   function handleAddTask(draft: TaskDraft) {
     addTask(draft, now);
   }
@@ -70,17 +79,6 @@ export default function App({ now = new Date() }: Props) {
 
   function handlePostponeTaskToDate(taskId: string, scheduledDate: string, toDate: string) {
     postponeTask(taskId, scheduledDate, toDate, now);
-  }
-
-  function PlaceholderView({ title, description }: { title: string; description: string }) {
-    return (
-      <Paper withBorder p="lg" radius="md" shadow="xs">
-        <Stack gap="xs">
-          <Title order={2}>{title}</Title>
-          <Text c="dimmed">{description}</Text>
-        </Stack>
-      </Paper>
-    );
   }
 
   return (
@@ -169,7 +167,9 @@ export default function App({ now = new Date() }: Props) {
           </Paper>
         ) : null}
         {view === "tasks" ? <TasksModuleView today={today} /> : null}
-        {view === "calendar" ? <PlaceholderView title="Kalendarz" description="Tutaj powstanie widok planowania zadan wedlug dat." /> : null}
+        {view === "calendar" ? (
+          <CalendarView today={today} onCreateTaskForDate={handleCreateTaskForDate} onEditTask={handleEditTaskFromCalendar} />
+        ) : null}
         {view === "categories" ? (
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <CategoryManager categories={state.categories} onAdd={addCategory} onUpdate={updateCategory} onDeactivate={deactivateCategory} />
