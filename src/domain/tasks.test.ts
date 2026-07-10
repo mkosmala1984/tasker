@@ -268,6 +268,12 @@ describe("task mutations", () => {
     expect(() => postponeTask(emptyState, "task-1", "2026-07-03", "", "2026-07-05T08:00:00.000Z")).toThrow("toDate is required");
   });
 
+  it("rejects invalid calendar target postponement date", () => {
+    expect(() => postponeTask(emptyState, "task-1", "2026-07-03", "2026-02-31", "2026-07-05T08:00:00.000Z")).toThrow(
+      "toDate is required"
+    );
+  });
+
   it("keeps recurring completion based on the actual completion date", () => {
     const state: AppState = {
       ...emptyState,

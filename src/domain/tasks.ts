@@ -1,4 +1,5 @@
 import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID } from "../storage/taskerStorage";
+import { isDateString } from "./dates";
 import type { AppState, Assignee, Category, TaskDraft } from "./types";
 
 export type IdFactory = () => string;
@@ -53,7 +54,7 @@ function requireText(value: string, label: string): string {
 }
 
 function requireDate(value: string, label: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (!isDateString(value)) {
     throw new Error(`${label} is required`);
   }
   return value;
