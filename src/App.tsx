@@ -1,4 +1,8 @@
 import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import { CategoryManager } from "./components/CategoryManager";
+import { DataTransferView } from "./components/DataTransferView";
+import { DictionaryManager } from "./components/DictionaryManager";
+import { HistoryView } from "./components/HistoryView";
 import { QuickAddForm } from "./components/QuickAddForm";
 import { TaskFilters } from "./components/TaskFilters";
 import { TasksModuleView } from "./components/tasks/TasksModuleView";
@@ -17,8 +21,23 @@ export default function App({ now = new Date() }: Props) {
   const storageError = useTaskerStore((store) => store.storageError);
   const filters = useTaskerStore((store) => store.filters);
   const setFilters = useTaskerStore((store) => store.setFilters);
+  const historyFilters = useTaskerStore((store) => store.historyFilters);
+  const setHistoryFilters = useTaskerStore((store) => store.setHistoryFilters);
   const view = useTaskerStore((store) => store.view);
   const setView = useTaskerStore((store) => store.setView);
+  const addCategory = useTaskerStore((store) => store.addCategory);
+  const updateCategory = useTaskerStore((store) => store.updateCategory);
+  const deactivateCategory = useTaskerStore((store) => store.deactivateCategory);
+  const addTaskType = useTaskerStore((store) => store.addTaskType);
+  const updateTaskType = useTaskerStore((store) => store.updateTaskType);
+  const setTaskTypeActive = useTaskerStore((store) => store.setTaskTypeActive);
+  const moveTaskType = useTaskerStore((store) => store.moveTaskType);
+  const addPriority = useTaskerStore((store) => store.addPriority);
+  const updatePriority = useTaskerStore((store) => store.updatePriority);
+  const setPriorityActive = useTaskerStore((store) => store.setPriorityActive);
+  const movePriority = useTaskerStore((store) => store.movePriority);
+  const previewImport = useTaskerStore((store) => store.previewImport);
+  const applyImport = useTaskerStore((store) => store.applyImport);
   const addTask = useTaskerStore((store) => store.addTask);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
@@ -139,10 +158,49 @@ export default function App({ now = new Date() }: Props) {
         ) : null}
         {view === "tasks" ? <TasksModuleView today={today} /> : null}
         {view === "calendar" ? <PlaceholderView title="Kalendarz" description="Tutaj powstanie widok planowania zadan wedlug dat." /> : null}
-        {view === "categories" ? <PlaceholderView title="Kategorie" description="Tutaj powstanie zarzadzanie kategoriami i kolorami." /> : null}
-        {view === "settings" ? <PlaceholderView title="Konfiguracja zadan" description="Tutaj powstanie konfiguracja typow, priorytetow i slownikow." /> : null}
-        {view === "history" ? <PlaceholderView title="Historia" description="Tutaj powstanie lista wykonania zadan." /> : null}
-        {view === "data" ? <PlaceholderView title="Dane" description="Tutaj powstanie import i eksport lokalnych danych." /> : null}
+        {view === "categories" ? (
+          <Paper withBorder p="lg" radius="md" shadow="xs">
+            <CategoryManager categories={state.categories} onAdd={addCategory} onUpdate={updateCategory} onDeactivate={deactivateCategory} />
+          </Paper>
+        ) : null}
+        {view === "settings" ? (
+          <Paper withBorder p="lg" radius="md" shadow="xs">
+            <Stack gap="xl">
+              <Title order={2}>Konfiguracja zadan</Title>
+              <DictionaryManager
+                title="Typy zadan"
+                nameLabel="Nowy typ zadania"
+                addLabel="Dodaj typ"
+                items={state.taskTypes}
+                onAdd={addTaskType}
+                onUpdate={updateTaskType}
+                onSetActive={setTaskTypeActive}
+                onMove={moveTaskType}
+              />
+              <DictionaryManager
+                title="Priorytety"
+                nameLabel="Nowy priorytet"
+                colorLabel="Kolor priorytetu"
+                addLabel="Dodaj priorytet"
+                items={state.priorities}
+                onAdd={addPriority}
+                onUpdate={updatePriority}
+                onSetActive={setPriorityActive}
+                onMove={movePriority}
+              />
+            </Stack>
+          </Paper>
+        ) : null}
+        {view === "history" ? (
+          <Paper withBorder p="lg" radius="md" shadow="xs">
+            <HistoryView state={state} filters={historyFilters} onFiltersChange={setHistoryFilters} />
+          </Paper>
+        ) : null}
+        {view === "data" ? (
+          <Paper withBorder p="lg" radius="md" shadow="xs">
+            <DataTransferView state={state} onPreviewImport={previewImport} onApplyImport={applyImport} />
+          </Paper>
+        ) : null}
       </Stack>
     </Container>
   );

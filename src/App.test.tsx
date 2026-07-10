@@ -1,7 +1,7 @@
 import { MantineProvider } from "@mantine/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { STORAGE_KEY } from "./storage/taskerStorage";
 import { resetTaskerStore } from "./state/taskerStore";
@@ -215,5 +215,114 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Edytuj zadanie" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Podlac rosliny")).toBeInTheDocument();
+  });
+
+  it("manages categories from the Kategorie view", async () => {
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Kategorie" }));
+    await user.type(screen.getByLabelText("Nazwa kategorii"), "Dom");
+    await user.clear(screen.getByLabelText("Kolor kategorii"));
+    await user.type(screen.getByLabelText("Kolor kategorii"), "#40c057");
+    await user.click(screen.getByRole("button", { name: "Dodaj kategorie" }));
+
+    expect(screen.getByText("Dom")).toBeInTheDocument();
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("#40c057");
+  });
+
+  it("manages task type and priority dictionaries from configuration", async () => {
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
+    await user.type(screen.getByLabelText("Nowy typ zadania"), "Termin");
+    await user.click(screen.getByRole("button", { name: "Dodaj typ" }));
+    await user.type(screen.getByLabelText("Nowy priorytet"), "Pilny");
+    await user.clear(screen.getByLabelText("Kolor priorytetu"));
+    await user.type(screen.getByLabelText("Kolor priorytetu"), "#fa5252");
+    await user.click(screen.getByRole("button", { name: "Dodaj priorytet" }));
+
+    expect(screen.getByText("Termin")).toBeInTheDocument();
+    expect(screen.getByText("Pilny")).toBeInTheDocument();
+  });
+
+  it("shows completion history as a filterable list without statistics", async () => {
+    const storedState = {
+      categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
+      assignees: [{ id: "person-ola", name: "Ola" }],
+      taskTypes: [{ id: "type-task", name: "Zadanie", active: true, order: 0 }],
+      priorities: [{ id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" }],
+      tasks: [
+        {
+          id: "task-1",
+          title: "Podlac rosliny",
+          categoryId: "cat-home",
+          assigneeId: "person-ola",
+          taskTypeId: "type-task",
+          priorityId: "priority-normal",
+          schedule: { mode: "oneTime", date: "2026-07-07" },
+          active: true,
+          createdAt: "2026-07-07T08:00:00.000Z",
+          updatedAt: "2026-07-07T08:00:00.000Z"
+        }
+      ],
+      completions: [{ id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-07", completedDate: "2026-07-07" }],
+      postponements: []
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(storedState));
+    resetTaskerStore();
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Historia" }));
+
+    expect(screen.getByRole("heading", { name: "Historia" })).toBeInTheDocument();
+    expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-07-07").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/statysty/i)).not.toBeInTheDocument();
+  });
+
+  it("exports complete local data from the Dane view", async () => {
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:tasker-export");
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Dane" }));
+    await user.click(screen.getByRole("button", { name: "Eksportuj dane" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:tasker-export");
+  });
+
+  it("validates import before confirmation and does not overwrite data on error", async () => {
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Kategorie" }));
+    await user.type(screen.getByLabelText("Nazwa kategorii"), "Dom");
+    await user.click(screen.getByRole("button", { name: "Dodaj kategorie" }));
+
+    await user.click(screen.getByRole("button", { name: "Dane" }));
+    const badFile = new File(["{bad-json"], "bad.json", { type: "application/json" });
+    await user.upload(screen.getByLabelText("Plik importu"), badFile);
+
+    expect(await screen.findByText("Plik importu nie jest poprawnym JSON.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Kategorie" }));
+    expect(screen.getByText("Dom")).toBeInTheDocument();
+  });
+
+  it("keeps non-scope modules as navigation-only placeholders", async () => {
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Zadania" }));
+    expect(screen.getByRole("heading", { name: "Zadania" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Kalendarz" }));
+    expect(screen.getByRole("heading", { name: "Kalendarz" })).toBeInTheDocument();
+    expect(screen.getByText("Tutaj powstanie widok planowania zadan wedlug dat.")).toBeInTheDocument();
   });
 });

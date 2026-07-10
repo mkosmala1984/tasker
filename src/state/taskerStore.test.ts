@@ -1,0 +1,47 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { STORAGE_KEY } from "../storage/taskerStorage";
+import { createExportPayload } from "../storage/taskerBackup";
+import { resetTaskerStore, useTaskerStore } from "./taskerStore";
+
+describe("taskerStore configuration and import actions", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetTaskerStore();
+  });
+
+  it("persists configuration changes", () => {
+    useTaskerStore.getState().addCategory({ name: " Dom ", color: "#40c057" });
+    useTaskerStore.getState().addTaskType({ name: "Termin" });
+    useTaskerStore.getState().addPriority({ name: "Pilny", color: "#fa5252" });
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+
+    expect(stored.categories[0]).toMatchObject({ name: "Dom", color: "#40c057" });
+    expect(stored.taskTypes.some((item: { name: string }) => item.name === "Termin")).toBe(true);
+    expect(stored.priorities.some((item: { name: string; color?: string }) => item.name === "Pilny" && item.color === "#fa5252")).toBe(
+      true
+    );
+  });
+
+  it("previews import without overwriting current data", () => {
+    useTaskerStore.getState().addCategory({ name: "Dom", color: "#40c057" });
+    const current = useTaskerStore.getState().state;
+    const preview = useTaskerStore
+      .getState()
+      .previewImport(JSON.stringify(createExportPayload({ ...current, categories: [] }, "2026-07-07T08:00:00.000Z")));
+
+    expect(preview.summary.categoryCount).toBe(0);
+    expect(useTaskerStore.getState().state.categories).toEqual([{ id: expect.any(String), name: "Dom", color: "#40c057" }]);
+  });
+
+  it("applies import only from a valid preview", () => {
+    useTaskerStore.getState().addCategory({ name: "Dom", color: "#40c057" });
+    const importedState = { ...useTaskerStore.getState().state, categories: [{ id: "cat-work", name: "Praca", color: "#228be6" }] };
+    const preview = useTaskerStore.getState().previewImport(JSON.stringify(createExportPayload(importedState, "2026-07-07T08:00:00.000Z")));
+
+    useTaskerStore.getState().applyImport(preview);
+
+    expect(useTaskerStore.getState().state.categories).toEqual([{ id: "cat-work", name: "Praca", color: "#228be6" }]);
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("Praca");
+  });
+});

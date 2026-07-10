@@ -31,3 +31,18 @@ Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
   writable: true,
   value: () => undefined
 });
+
+Object.defineProperty(window.HTMLAnchorElement.prototype, "click", {
+  writable: true,
+  value: () => undefined
+});
+
+Object.defineProperty(URL, "createObjectURL", {
+  writable: true,
+  value: () => "blob:test"
+});
+
+Object.defineProperty(URL, "revokeObjectURL", {
+  writable: true,
+  value: () => undefined
+});
