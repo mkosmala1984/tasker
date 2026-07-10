@@ -62,12 +62,6 @@ export function TodayTaskCard({ item, onComplete, onPostponeTomorrow, onPostpone
           >
             Odloz do daty
           </Button>
-          <Button type="button" variant="default" onClick={() => onEdit(item.task.id)}>
-            Edytuj
-          </Button>
-          <Button type="button" color="red" variant="light" onClick={() => onDeactivate(item.task.id)}>
-            Dezaktywuj
-          </Button>
         </Group>
       </Stack>
     </Card>

@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { STORAGE_KEY } from "./storage/taskerStorage";
+import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID, STORAGE_KEY } from "./storage/taskerStorage";
 import { resetTaskerStore } from "./state/taskerStore";
 
 function renderApp({ now = new Date(2026, 6, 5, 9, 0) }: { now?: Date } = {}) {
@@ -42,14 +42,54 @@ function seedTaskState() {
   );
 }
 
+function seedTaskFormDictionaries() {
+  seedState({
+    tasks: [],
+    categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
+    assignees: [{ id: "person-ola", name: "Ola" }],
+    taskTypes: [{ id: DEFAULT_TASK_TYPE_ID, name: "Zadanie", active: true, order: 0 }],
+    priorities: [{ id: DEFAULT_PRIORITY_ID, name: "Normalny", active: true, order: 0, color: "#868e96" }],
+    completions: [],
+    postponements: []
+  });
+}
+
+function seedTodayTaskState() {
+  seedState({
+    tasks: [
+      {
+        id: "task-1",
+        title: "Podlac rosliny",
+        categoryId: "cat-home",
+        assigneeId: "person-ola",
+        taskTypeId: DEFAULT_TASK_TYPE_ID,
+        priorityId: DEFAULT_PRIORITY_ID,
+        schedule: { mode: "oneTime", date: "2026-07-05" },
+        active: true,
+        createdAt: "2026-07-05T08:00:00.000Z",
+        updatedAt: "2026-07-05T08:00:00.000Z"
+      }
+    ],
+    categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
+    assignees: [{ id: "person-ola", name: "Ola" }],
+    taskTypes: [{ id: DEFAULT_TASK_TYPE_ID, name: "Zadanie", active: true, order: 0 }],
+    priorities: [{ id: DEFAULT_PRIORITY_ID, name: "Normalny", active: true, order: 0, color: "#868e96" }],
+    completions: [],
+    postponements: []
+  });
+}
+
 async function addDailyTask(title: string, category: string, assignee: string) {
   const user = userEvent.setup();
 
-  const form = screen.getByRole("form", { name: "Szybkie dodanie" });
+  await user.click(screen.getByRole("button", { name: "Zadania" }));
+  await user.click(screen.getByRole("button", { name: "+ Dodaj zadanie" }));
+
+  const form = screen.getByRole("form", { name: "Dodaj zadanie" });
   await user.type(within(form).getByLabelText(/Nazwa zadania/), title);
-  await user.type(within(form).getByLabelText(/Kategoria/), category);
-  await user.type(within(form).getByLabelText(/Osoba/), assignee);
-  await user.click(within(form).getByRole("button", { name: "Zapisz" }));
+  await user.selectOptions(within(form).getByLabelText("Kategoria"), "cat-home");
+  await user.selectOptions(within(form).getByLabelText("Osoba"), "person-ola");
+  await user.click(within(form).getByRole("button", { name: "Zapisz zadanie" }));
 }
 
 function seedState(state: unknown) {
@@ -64,22 +104,22 @@ describe("App", () => {
   });
 
   it("adds a task and persists it in localStorage", async () => {
+    seedTaskFormDictionaries();
     renderApp();
 
     await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
-    expect(screen.getByRole("heading", { name: "Tasker" })).toBeInTheDocument();
-    expect(screen.getByText("Niedziela, 5 lipca 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Tasker" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zadania" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Podlac rosliny" })).toBeInTheDocument();
-    expect(screen.getAllByText("Dzisiaj").length).toBeGreaterThan(0);
-    expect(screen.getByText("Jeszcze nie wykonane")).toBeInTheDocument();
     expect(localStorage.getItem(STORAGE_KEY)).toContain("Podlac rosliny");
   });
 
-  it("opens the separate task editor from the header add button", async () => {
+  it("opens the separate task editor from the tasks view add button", async () => {
     renderApp();
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole("button", { name: "Zadania" }));
     await user.click(screen.getByRole("button", { name: "+ Dodaj zadanie" }));
 
     expect(screen.getByRole("heading", { name: "Dodaj zadanie" })).toBeInTheDocument();
@@ -112,9 +152,9 @@ describe("App", () => {
   });
 
   it("marks a task as complete and removes it from today", async () => {
+    seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
     await user.click(screen.getByRole("button", { name: "Wykonane" }));
 
@@ -123,9 +163,9 @@ describe("App", () => {
   });
 
   it("postpones a task without recording completion", async () => {
+    seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
     await user.click(screen.getByRole("button", { name: "Odloz na jutro" }));
 
@@ -186,13 +226,13 @@ describe("App", () => {
     renderApp();
     const user = userEvent.setup();
 
-    const filters = screen.getByRole("region", { name: "Filtry" });
-    await user.click(within(filters).getByRole("radio", { name: "Praca" }));
-    await user.click(within(filters).getByLabelText("Osoba"));
+    await user.click(screen.getByRole("button", { name: "Pokaz filtry" }));
+    await user.click(screen.getByRole("radio", { name: "Praca" }));
+    await user.click(screen.getAllByRole("combobox", { name: "Osoba" })[0]);
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    await user.click(within(filters).getByLabelText("Typ"));
+    await user.click(screen.getAllByRole("combobox", { name: "Typ" })[0]);
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    await user.click(within(filters).getByLabelText("Priorytet"));
+    await user.click(screen.getAllByRole("combobox", { name: "Priorytet" })[0]);
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const list = screen.getByRole("region", { name: "Zadania na dzisiaj" });
@@ -201,9 +241,9 @@ describe("App", () => {
   });
 
   it("postpones a task to a selected date without recording completion", async () => {
+    seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
-    await addDailyTask("Podlac rosliny", "Dom", "Ola");
 
     await user.type(screen.getByLabelText("Data odlozenia: Podlac rosliny"), "2026-07-12");
     await user.click(screen.getByRole("button", { name: "Odloz do daty" }));
@@ -252,31 +292,13 @@ describe("App", () => {
     expect(stored).toContain('"completedDate":"2026-07-03"');
   });
 
-  it("edits an existing task in the separate editor and deactivates it from the list", async () => {
-    renderApp();
-    const user = userEvent.setup();
-    await addDailyTask("Stara nazwa", "Dom", "Ola");
-
-    await user.click(screen.getByRole("button", { name: "Edytuj" }));
-    const form = screen.getByRole("form", { name: "Edytuj zadanie" });
-    await user.clear(within(form).getByLabelText(/Nazwa zadania/));
-    await user.type(within(form).getByLabelText(/Nazwa zadania/), "Nowa nazwa");
-    await user.click(within(form).getByRole("button", { name: "Zapisz zmiany" }));
-
-    expect(screen.getByText("Nowa nazwa")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Dezaktywuj" }));
-
-    expect(screen.getByText("Nowa nazwa")).toBeInTheDocument();
-    expect(screen.getByText("Nieaktywne")).toBeInTheDocument();
-  });
-
   it("creates a one-time task from the separate tasks view", async () => {
     seedTaskState();
     resetTaskerStore();
     renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole("button", { name: "Zadania" }));
     await user.click(screen.getByRole("button", { name: "+ Dodaj zadanie" }));
     expect(screen.getByRole("heading", { name: "Dodaj zadanie" })).toBeInTheDocument();
 
@@ -321,18 +343,6 @@ describe("App", () => {
 
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
     expect(screen.getByText("Nieaktywne")).toBeInTheDocument();
-  });
-
-  it("opens the separate editor from a Today task card", async () => {
-    seedTaskState();
-    resetTaskerStore();
-    renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Edytuj" }));
-
-    expect(screen.getByRole("heading", { name: "Edytuj zadanie" })).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Podlac rosliny")).toBeInTheDocument();
   });
 
   it("manages categories from the Kategorie view", async () => {

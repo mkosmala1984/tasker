@@ -1,0 +1,645 @@
+{
+  "version": 2,
+  "exportedAt": "2026-07-10T15:10:00.000Z",
+  "state": {
+    "tasks": [
+      {
+        "id": "task-001",
+        "title": "Ogarnac zmywarke",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:00:00.000Z",
+        "updatedAt": "2026-07-10T06:00:00.000Z"
+      },
+      {
+        "id": "task-002",
+        "title": "Odkurzyc salon",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:01:00.000Z",
+        "updatedAt": "2026-07-10T06:01:00.000Z"
+      },
+      {
+        "id": "task-003",
+        "title": "Wyniesc smieci",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:02:00.000Z",
+        "updatedAt": "2026-07-10T06:02:00.000Z"
+      },
+      {
+        "id": "task-004",
+        "title": "Sprawdzic lodowke",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:03:00.000Z",
+        "updatedAt": "2026-07-10T06:03:00.000Z"
+      },
+      {
+        "id": "task-005",
+        "title": "Rozlozyc pranie",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:04:00.000Z",
+        "updatedAt": "2026-07-10T06:04:00.000Z"
+      },
+      {
+        "id": "task-006",
+        "title": "Kupic warzywa",
+        "categoryId": "category-shopping",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:05:00.000Z",
+        "updatedAt": "2026-07-10T06:05:00.000Z"
+      },
+      {
+        "id": "task-007",
+        "title": "Kupic kawe",
+        "categoryId": "category-shopping",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:06:00.000Z",
+        "updatedAt": "2026-07-10T06:06:00.000Z"
+      },
+      {
+        "id": "task-008",
+        "title": "Oddac paczke w punkcie",
+        "categoryId": "category-shopping",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:07:00.000Z",
+        "updatedAt": "2026-07-10T06:07:00.000Z"
+      },
+      {
+        "id": "task-009",
+        "title": "Wyslac fakture",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:08:00.000Z",
+        "updatedAt": "2026-07-10T06:08:00.000Z"
+      },
+      {
+        "id": "task-010",
+        "title": "Przejrzec backlog",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:09:00.000Z",
+        "updatedAt": "2026-07-10T06:09:00.000Z"
+      },
+      {
+        "id": "task-011",
+        "title": "Rozpisac trening na weekend",
+        "categoryId": "category-training",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:10:00.000Z",
+        "updatedAt": "2026-07-10T06:10:00.000Z"
+      },
+      {
+        "id": "task-012",
+        "title": "Uzupelnic witaminy",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-10" },
+        "active": true,
+        "createdAt": "2026-07-10T06:11:00.000Z",
+        "updatedAt": "2026-07-10T06:11:00.000Z"
+      },
+      {
+        "id": "task-013",
+        "title": "Telefon do serwisu roweru",
+        "categoryId": "category-other",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-11" },
+        "active": true,
+        "createdAt": "2026-07-10T06:12:00.000Z",
+        "updatedAt": "2026-07-10T06:12:00.000Z"
+      },
+      {
+        "id": "task-014",
+        "title": "Przygotowac obiad na dwa dni",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-11" },
+        "active": true,
+        "createdAt": "2026-07-10T06:13:00.000Z",
+        "updatedAt": "2026-07-10T06:13:00.000Z"
+      },
+      {
+        "id": "task-015",
+        "title": "Zamowic filtry do ekspresu",
+        "categoryId": "category-shopping",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-11" },
+        "active": true,
+        "createdAt": "2026-07-10T06:14:00.000Z",
+        "updatedAt": "2026-07-10T06:14:00.000Z"
+      },
+      {
+        "id": "task-016",
+        "title": "Zrobic przeglad sprintu",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-11" },
+        "active": true,
+        "createdAt": "2026-07-10T06:15:00.000Z",
+        "updatedAt": "2026-07-10T06:15:00.000Z"
+      },
+      {
+        "id": "task-017",
+        "title": "Trening nog",
+        "categoryId": "category-training",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-11" },
+        "active": true,
+        "createdAt": "2026-07-10T06:16:00.000Z",
+        "updatedAt": "2026-07-10T06:16:00.000Z"
+      },
+      {
+        "id": "task-018",
+        "title": "Spakowac dokumenty do urzedu",
+        "categoryId": "category-other",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-12" },
+        "active": true,
+        "createdAt": "2026-07-10T06:17:00.000Z",
+        "updatedAt": "2026-07-10T06:17:00.000Z"
+      },
+      {
+        "id": "task-019",
+        "title": "Kupic bialko",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-12" },
+        "active": true,
+        "createdAt": "2026-07-10T06:18:00.000Z",
+        "updatedAt": "2026-07-10T06:18:00.000Z"
+      },
+      {
+        "id": "task-020",
+        "title": "Umowic dentyste",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-12" },
+        "active": true,
+        "createdAt": "2026-07-10T06:19:00.000Z",
+        "updatedAt": "2026-07-10T06:19:00.000Z"
+      },
+      {
+        "id": "task-021",
+        "title": "Opublikowac notatki po spotkaniu",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": { "mode": "oneTime", "date": "2026-07-13" },
+        "active": true,
+        "createdAt": "2026-07-10T06:20:00.000Z",
+        "updatedAt": "2026-07-10T06:20:00.000Z"
+      },
+      {
+        "id": "task-022",
+        "title": "Prasowanie koszul",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-13" },
+        "active": true,
+        "createdAt": "2026-07-10T06:21:00.000Z",
+        "updatedAt": "2026-07-10T06:21:00.000Z"
+      },
+      {
+        "id": "task-023",
+        "title": "Przygotowac liste zakupow na tydzien",
+        "categoryId": "category-shopping",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-13" },
+        "active": true,
+        "createdAt": "2026-07-10T06:22:00.000Z",
+        "updatedAt": "2026-07-10T06:22:00.000Z"
+      },
+      {
+        "id": "task-024",
+        "title": "Zaplacic za internet",
+        "categoryId": "category-other",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-14" },
+        "active": true,
+        "createdAt": "2026-07-10T06:23:00.000Z",
+        "updatedAt": "2026-07-10T06:23:00.000Z"
+      },
+      {
+        "id": "task-025",
+        "title": "Badania kontrolne",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": { "mode": "oneTime", "date": "2026-07-14" },
+        "active": true,
+        "createdAt": "2026-07-10T06:24:00.000Z",
+        "updatedAt": "2026-07-10T06:24:00.000Z"
+      },
+      {
+        "id": "task-026",
+        "title": "Sprawdzic plan urlopu",
+        "categoryId": "category-other",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": { "mode": "oneTime", "date": "2026-07-15" },
+        "active": true,
+        "createdAt": "2026-07-10T06:25:00.000Z",
+        "updatedAt": "2026-07-10T06:25:00.000Z"
+      },
+      {
+        "id": "task-027",
+        "title": "Kuchnia",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-10",
+          "recurrence": { "type": "daily" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:26:00.000Z",
+        "updatedAt": "2026-07-10T06:26:00.000Z"
+      },
+      {
+        "id": "task-028",
+        "title": "Pranie",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-10",
+          "recurrence": { "type": "daily" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:27:00.000Z",
+        "updatedAt": "2026-07-10T06:27:00.000Z"
+      },
+      {
+        "id": "task-029",
+        "title": "Spacer 30 minut",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-08",
+          "recurrence": { "type": "daily" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:28:00.000Z",
+        "updatedAt": "2026-07-10T06:28:00.000Z"
+      },
+      {
+        "id": "task-030",
+        "title": "Witamina D",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-01",
+          "recurrence": { "type": "daily" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:29:00.000Z",
+        "updatedAt": "2026-07-10T06:29:00.000Z"
+      },
+      {
+        "id": "task-031",
+        "title": "Podlac rosliny",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-10",
+          "recurrence": { "type": "everyNDays", "intervalDays": 2 }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:30:00.000Z",
+        "updatedAt": "2026-07-10T06:30:00.000Z"
+      },
+      {
+        "id": "task-032",
+        "title": "Trening core",
+        "categoryId": "category-training",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-09",
+          "recurrence": { "type": "everyNDays", "intervalDays": 2 }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:31:00.000Z",
+        "updatedAt": "2026-07-10T06:31:00.000Z"
+      },
+      {
+        "id": "task-033",
+        "title": "Plan suplementacji",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-10",
+          "recurrence": { "type": "everyNDays", "intervalDays": 3 }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:32:00.000Z",
+        "updatedAt": "2026-07-10T06:32:00.000Z"
+      },
+      {
+        "id": "task-034",
+        "title": "Zmiana recznikow",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-05",
+          "recurrence": { "type": "everyNDays", "intervalDays": 5 }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:33:00.000Z",
+        "updatedAt": "2026-07-10T06:33:00.000Z"
+      },
+      {
+        "id": "task-035",
+        "title": "Przeglad budzetu",
+        "categoryId": "category-other",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-04",
+          "recurrence": { "type": "weekly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:34:00.000Z",
+        "updatedAt": "2026-07-10T06:34:00.000Z"
+      },
+      {
+        "id": "task-036",
+        "title": "Trening push",
+        "categoryId": "category-training",
+        "assigneeId": "assignee-jan",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-07-03",
+          "recurrence": { "type": "weekly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:35:00.000Z",
+        "updatedAt": "2026-07-10T06:35:00.000Z"
+      },
+      {
+        "id": "task-037",
+        "title": "Archiwizacja dokumentow",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-06-15",
+          "recurrence": { "type": "monthly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:36:00.000Z",
+        "updatedAt": "2026-07-10T06:36:00.000Z"
+      },
+      {
+        "id": "task-038",
+        "title": "Rozliczenie kart sportowych",
+        "categoryId": "category-work",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-normal",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-06-10",
+          "recurrence": { "type": "monthly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:37:00.000Z",
+        "updatedAt": "2026-07-10T06:37:00.000Z"
+      },
+      {
+        "id": "task-039",
+        "title": "Przeglad szafy",
+        "categoryId": "category-home",
+        "assigneeId": "assignee-ola",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-low",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-04-10",
+          "recurrence": { "type": "quarterly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:38:00.000Z",
+        "updatedAt": "2026-07-10T06:38:00.000Z"
+      },
+      {
+        "id": "task-040",
+        "title": "Przeglad badan",
+        "categoryId": "category-health",
+        "assigneeId": "assignee-none",
+        "taskTypeId": "task-type-default",
+        "priorityId": "priority-high",
+        "schedule": {
+          "mode": "recurring",
+          "startDate": "2026-04-01",
+          "recurrence": { "type": "quarterly" }
+        },
+        "active": true,
+        "createdAt": "2026-07-10T06:39:00.000Z",
+        "updatedAt": "2026-07-10T06:39:00.000Z"
+      }
+    ],
+    "categories": [
+      { "id": "category-home", "name": "Porzadki", "color": "#228be6" },
+      { "id": "category-training", "name": "Trening", "color": "#12b886" },
+      { "id": "category-health", "name": "Zdrowie i suple", "color": "#fa5252" },
+      { "id": "category-shopping", "name": "Zakupy", "color": "#f59f00" },
+      { "id": "category-work", "name": "Praca", "color": "#5f3dc4" },
+      { "id": "category-other", "name": "Inne", "color": "#868e96" }
+    ],
+    "assignees": [
+      { "id": "assignee-none", "name": "Bez osoby" },
+      { "id": "assignee-ola", "name": "Ola" },
+      { "id": "assignee-jan", "name": "Jan" }
+    ],
+    "taskTypes": [
+      { "id": "task-type-default", "name": "Zadanie", "active": true, "order": 0 }
+    ],
+    "priorities": [
+      { "id": "priority-high", "name": "Wysoki", "active": true, "order": 0, "color": "#fa5252" },
+      { "id": "priority-normal", "name": "Normalny", "active": true, "order": 1, "color": "#868e96" },
+      { "id": "priority-low", "name": "Niski", "active": true, "order": 2, "color": "#40c057" }
+    ],
+    "completions": [
+      {
+        "id": "completion-001",
+        "taskId": "task-029",
+        "scheduledDate": "2026-07-09",
+        "completedDate": "2026-07-09"
+      },
+      {
+        "id": "completion-002",
+        "taskId": "task-030",
+        "scheduledDate": "2026-07-09",
+        "completedDate": "2026-07-09"
+      },
+      {
+        "id": "completion-003",
+        "taskId": "task-032",
+        "scheduledDate": "2026-07-09",
+        "completedDate": "2026-07-09"
+      },
+      {
+        "id": "completion-004",
+        "taskId": "task-035",
+        "scheduledDate": "2026-07-04",
+        "completedDate": "2026-07-04"
+      },
+      {
+        "id": "completion-005",
+        "taskId": "task-036",
+        "scheduledDate": "2026-07-03",
+        "completedDate": "2026-07-03"
+      },
+      {
+        "id": "completion-006",
+        "taskId": "task-037",
+        "scheduledDate": "2026-06-15",
+        "completedDate": "2026-06-15"
+      },
+      {
+        "id": "completion-007",
+        "taskId": "task-040",
+        "scheduledDate": "2026-04-01",
+        "completedDate": "2026-04-01"
+      },
+      {
+        "id": "completion-008",
+        "taskId": "task-022",
+        "scheduledDate": "2026-07-13",
+        "completedDate": "2026-07-13"
+      }
+    ],
+    "postponements": [
+      {
+        "id": "postponement-001",
+        "taskId": "task-027",
+        "fromDate": "2026-07-10",
+        "toDate": "2026-07-11",
+        "createdAt": "2026-07-10T07:00:00.000Z"
+      },
+      {
+        "id": "postponement-002",
+        "taskId": "task-031",
+        "fromDate": "2026-07-10",
+        "toDate": "2026-07-12",
+        "createdAt": "2026-07-10T07:05:00.000Z"
+      },
+      {
+        "id": "postponement-003",
+        "taskId": "task-003",
+        "fromDate": "2026-07-10",
+        "toDate": "2026-07-11",
+        "createdAt": "2026-07-10T07:10:00.000Z"
+      },
+      {
+        "id": "postponement-004",
+        "taskId": "task-017",
+        "fromDate": "2026-07-11",
+        "toDate": "2026-07-12",
+        "createdAt": "2026-07-10T07:15:00.000Z"
+      }
+    ]
+  }
+}
