@@ -44,7 +44,9 @@ button, input, select { font: inherit; }
 .today-summary-title { font-size: 48px; line-height: 1.05; font-weight: 700; }
 .today-summary-date { color: var(--color-text-secondary); font-size: 16px; }
 .today-count { background: var(--color-accent-soft); color: var(--color-accent); }
-.today-active-list { display: grid; gap: var(--space-2); }
+.today-active-list { display: grid; gap: 0; }
+.today-active-list > .today-task-row { border: 0; border-bottom: 1px solid var(--color-border-subtle); border-radius: 0; box-shadow: none; padding-right: 0; padding-left: 0; }
+.today-active-list > .today-task-row:last-child { border-bottom: 0; }
 .today-empty { min-height: 180px; display: grid; align-content: center; }
 .today-completed { background: var(--color-bg-muted); border-color: var(--color-border-subtle); }
 .today-task-row { background: var(--color-bg-surface); border-color: var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); }
