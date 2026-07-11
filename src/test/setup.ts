@@ -1,4 +1,17 @@
 import "@testing-library/jest-dom/vitest";
+import "../styles.css";
+
+for (const [name, value] of Object.entries({
+  "--color-bg-app": "#f6f4ef",
+  "--color-bg-surface": "#fffdf9",
+  "--color-text-primary": "#1f1c17",
+  "--color-accent": "#3f7a57",
+  "--color-danger-soft": "#fde7e3",
+  "--space-4": "16px",
+  "--radius-md": "12px"
+})) {
+  document.documentElement.style.setProperty(name, value);
+}
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
