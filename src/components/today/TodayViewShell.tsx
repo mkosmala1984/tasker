@@ -23,7 +23,7 @@ export function TodayViewShell(props: TodayViewShellProps) {
 
   return (
     <Stack gap="lg">
-      <TodaySummaryHeader dateLabel={props.dateLabel} activeCount={props.activeTasks.length} />
+      {/*<TodaySummaryHeader dateLabel={props.dateLabel} activeCount={props.activeTasks.length} />*/}
       <TodayActiveList
         today={props.today}
         activeTasks={props.activeTasks}

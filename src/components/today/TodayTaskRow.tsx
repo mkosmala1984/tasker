@@ -23,7 +23,7 @@ export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComple
       <Stack gap="sm">
         <Group className="today-task-header" justify="space-between" align="flex-start" gap="md">
           <Stack gap={2}>
-            <Text className="today-task-title" fw={600}>{item.task.title}</Text>
+            <Text className="today-task-title" fw={600} c={item.category.color}>{item.task.title}</Text>
             <Text className="today-task-meta">
               {completionText}
             </Text>
