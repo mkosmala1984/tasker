@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTodayList, getCurrentScheduledDate } from "./todayList";
+import { buildTodayList, buildTodayTaskGroup, getCurrentScheduledDate } from "./todayList";
 import type { AppState, Task, TodayFilters } from "./types";
 
 const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
@@ -43,6 +43,37 @@ function task(overrides: Partial<Task> = {}): Task {
 }
 
 describe("buildTodayList", () => {
+  it("separates tasks completed today from active items", () => {
+    const state: AppState = {
+      ...baseState,
+      tasks: [
+        task({ id: "task-active", title: "Aktywne", schedule: { mode: "oneTime", date: "2026-07-10" } }),
+        task({ id: "task-done", title: "Wykonane", schedule: { mode: "oneTime", date: "2026-07-10" } })
+      ],
+      completions: [
+        { id: "completion-1", taskId: "task-done", scheduledDate: "2026-07-10", completedDate: "2026-07-10" }
+      ]
+    };
+
+    const group = buildTodayTaskGroup(state, "2026-07-10");
+
+    expect(group.active.map((item) => item.task.title)).toEqual(["Aktywne"]);
+    expect(group.completedToday.map((item) => item.task.title)).toEqual(["Wykonane"]);
+  });
+
+  it("does not include tasks completed on an earlier day in completed-today", () => {
+    const state: AppState = {
+      ...baseState,
+      tasks: [task({ id: "task-1", schedule: { mode: "oneTime", date: "2026-07-09" } })],
+      completions: [{ id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-09", completedDate: "2026-07-09" }]
+    };
+
+    const group = buildTodayTaskGroup(state, "2026-07-10");
+
+    expect(group.active).toHaveLength(0);
+    expect(group.completedToday).toHaveLength(0);
+  });
+
   it("shows active one-time tasks scheduled for today", () => {
     const state: AppState = {
       ...baseState,

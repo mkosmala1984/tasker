@@ -1,6 +1,6 @@
 import { compareDates } from "./dates";
 import { getNextScheduledDate } from "./recurrence";
-import type { AppState, Assignee, Category, Completion, Postponement, Priority, Task, TaskType, TodayFilters, TodayTask } from "./types";
+import type { AppState, Assignee, Category, Completion, Postponement, Priority, Task, TaskType, TodayFilters, TodayTask, TodayTaskGroup } from "./types";
 
 function getLatestCompletion(taskId: string, completions: Completion[]): Completion | undefined {
   return completions
@@ -52,6 +52,37 @@ function findPriority(priorities: Priority[], id: string): Priority {
   return priorities.find((priority) => priority.id === id) ?? { id, name: "Nieznany priorytet", active: false, order: 0 };
 }
 
+function buildTodayTaskItem(state: AppState, task: Task, today: string): TodayTask | undefined {
+  const scheduledDate = getCurrentScheduledDate(task, state.completions);
+  if (scheduledDate === undefined || compareDates(scheduledDate, today) > 0 || isHiddenByPostponement(state, task.id, today)) {
+    return undefined;
+  }
+
+  return {
+    task,
+    category: findCategory(state.categories, task.categoryId),
+    assignee: findAssignee(state.assignees, task.assigneeId),
+    taskType: findTaskType(state.taskTypes, task.taskTypeId),
+    priority: findPriority(state.priorities, task.priorityId),
+    scheduledDate,
+    isOverdue: compareDates(scheduledDate, today) < 0,
+    lastCompletedDate: getLatestCompletion(task.id, state.completions)?.completedDate
+  };
+}
+
+function buildCompletedTodayItem(state: AppState, task: Task, completion: Completion, today: string): TodayTask {
+  return {
+    task,
+    category: findCategory(state.categories, task.categoryId),
+    assignee: findAssignee(state.assignees, task.assigneeId),
+    taskType: findTaskType(state.taskTypes, task.taskTypeId),
+    priority: findPriority(state.priorities, task.priorityId),
+    scheduledDate: completion.scheduledDate,
+    isOverdue: compareDates(completion.scheduledDate, today) < 0,
+    lastCompletedDate: completion.completedDate
+  };
+}
+
 function matchesFilters(task: Task, filters: TodayFilters): boolean {
   return (
     (filters.categoryId === "" || task.categoryId === filters.categoryId) &&
@@ -61,32 +92,46 @@ function matchesFilters(task: Task, filters: TodayFilters): boolean {
   );
 }
 
-export function buildTodayList(state: AppState, today: string, filters: TodayFilters): TodayTask[] {
-  return state.tasks
-    .filter((task) => task.active)
-    .filter((task) => matchesFilters(task, filters))
-    .map((task) => ({
-      task,
-      scheduledDate: getCurrentScheduledDate(task, state.completions)
+export function buildTodayTaskGroup(state: AppState, today: string): TodayTaskGroup {
+  const completedToday = state.completions
+    .filter((completion) => completion.completedDate === today)
+    .map((completion) => ({
+      completion,
+      task: state.tasks.find((task) => task.id === completion.taskId)
     }))
-    .filter((item): item is { task: Task; scheduledDate: string } => item.scheduledDate !== undefined)
-    .filter((item) => compareDates(item.scheduledDate, today) <= 0)
-    .filter((item) => !isHiddenByPostponement(state, item.task.id, today))
-    .map((item) => ({
-      task: item.task,
-      category: findCategory(state.categories, item.task.categoryId),
-      assignee: findAssignee(state.assignees, item.task.assigneeId),
-      taskType: findTaskType(state.taskTypes, item.task.taskTypeId),
-      priority: findPriority(state.priorities, item.task.priorityId),
-      scheduledDate: item.scheduledDate,
-      isOverdue: compareDates(item.scheduledDate, today) < 0,
-      lastCompletedDate: getLatestCompletion(item.task.id, state.completions)?.completedDate
-    }))
+    .filter((item): item is { completion: Completion; task: Task } => item.task !== undefined && item.task.active)
+    .map((item) => buildCompletedTodayItem(state, item.task, item.completion, today))
     .sort((left, right) => {
       const byDate = compareDates(left.scheduledDate, right.scheduledDate);
       if (byDate !== 0) {
         return byDate;
       }
+
       return left.task.title.localeCompare(right.task.title, "pl");
     });
+
+  const completedTodayIds = new Set(completedToday.map((item) => item.task.id));
+
+  const items = state.tasks
+    .filter((task) => task.active)
+    .map((task) => buildTodayTaskItem(state, task, today))
+    .filter((item): item is TodayTask => item !== undefined)
+    .sort((left, right) => {
+      const byDate = compareDates(left.scheduledDate, right.scheduledDate);
+      if (byDate !== 0) {
+        return byDate;
+      }
+
+      return left.task.title.localeCompare(right.task.title, "pl");
+    });
+
+  return {
+    active: items.filter((item) => !completedTodayIds.has(item.task.id)),
+    completedToday
+  };
+}
+
+export function buildTodayList(state: AppState, today: string, filters: TodayFilters): TodayTask[] {
+  return buildTodayTaskGroup(state, today).active
+    .filter((item) => matchesFilters(item.task, filters));
 }

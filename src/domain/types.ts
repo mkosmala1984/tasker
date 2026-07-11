@@ -93,6 +93,11 @@ export type TodayTask = {
   lastCompletedDate?: string;
 };
 
+export type TodayTaskGroup = {
+  active: TodayTask[];
+  completedToday: TodayTask[];
+};
+
 export type TaskDraft = {
   title: string;
   categoryName: string;

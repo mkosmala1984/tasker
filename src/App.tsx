@@ -1,15 +1,13 @@
-import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
-import { useState } from "react";
+import { Alert, Button, Container, Group, Paper, Stack, Title } from "@mantine/core";
 import { CategoryManager } from "./components/CategoryManager";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
 import { DictionaryManager } from "./components/DictionaryManager";
 import { HistoryView } from "./components/HistoryView";
-import { TaskFilters } from "./components/TaskFilters";
+import { TodayViewShell } from "./components/today/TodayViewShell";
 import { TasksModuleView } from "./components/tasks/TasksModuleView";
-import { TodayTaskList } from "./components/TodayTaskList";
 import { formatPolishDateLabel, getTodayString } from "./domain/dates";
-import { buildTodayList } from "./domain/todayList";
+import { buildTodayTaskGroup } from "./domain/todayList";
 import { useTaskerStore } from "./state/taskerStore";
 
 type Props = {
@@ -17,11 +15,8 @@ type Props = {
 };
 
 export default function App({ now = new Date() }: Props) {
-  const [todayFiltersOpen, setTodayFiltersOpen] = useState(false);
   const state = useTaskerStore((store) => store.state);
   const storageError = useTaskerStore((store) => store.storageError);
-  const filters = useTaskerStore((store) => store.filters);
-  const setFilters = useTaskerStore((store) => store.setFilters);
   const historyFilters = useTaskerStore((store) => store.historyFilters);
   const setHistoryFilters = useTaskerStore((store) => store.setHistoryFilters);
   const view = useTaskerStore((store) => store.view);
@@ -42,11 +37,10 @@ export default function App({ now = new Date() }: Props) {
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
   const postponeTask = useTaskerStore((store) => store.postponeTask);
-  const postponeTaskToTomorrow = useTaskerStore((store) => store.postponeTaskToTomorrow);
   const openTaskCreate = useTaskerStore((store) => store.openTaskCreate);
   const openTaskEdit = useTaskerStore((store) => store.openTaskEdit);
   const today = getTodayString(now);
-  const todayTasks = buildTodayList(state, today, filters);
+  const todayGroup = buildTodayTaskGroup(state, today);
 
   function handleCreateTask() {
     openTaskCreate();
@@ -66,10 +60,6 @@ export default function App({ now = new Date() }: Props) {
 
   function handleCompleteTask(taskId: string, scheduledDate: string) {
     completeTask(taskId, scheduledDate, now);
-  }
-
-  function handlePostponeTaskToTomorrow(taskId: string, scheduledDate: string) {
-    postponeTaskToTomorrow(taskId, scheduledDate, now);
   }
 
   function handlePostponeTaskToDate(taskId: string, scheduledDate: string, toDate: string) {
@@ -106,45 +96,19 @@ export default function App({ now = new Date() }: Props) {
         {view === "today" ? (
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <Stack gap="md">
-              <div>
-                <Title order={2}>Dzisiaj <Text component={'span'}  c="dimmed">{formatPolishDateLabel(today)}</Text></Title>
-              </div>
-
               {storageError ? (
                 <Alert color="yellow" title="Problem z lokalnymi danymi">
                   {storageError}
                 </Alert>
               ) : null}
 
-              <Stack gap="xs">
-                <Group justify="space-between" align="center">
-                  <Title order={4}>Filtrowanie</Title>
-                  <Button variant="subtle" size="compact-sm" onClick={() => setTodayFiltersOpen((open) => !open)}>
-                    {todayFiltersOpen ? "Ukryj filtry" : "Pokaz filtry"}
-                  </Button>
-                </Group>
-
-                {todayFiltersOpen ? (
-                  <TaskFilters
-                    categories={state.categories}
-                    assignees={state.assignees}
-                    taskTypes={state.taskTypes}
-                    priorities={state.priorities}
-                    filters={filters}
-                    onChange={setFilters}
-                  />
-                ) : null}
-              </Stack>
-
-              <TodayTaskList
-                tasks={todayTasks}
-                categories={state.categories}
-                assignees={state.assignees}
-                taskTypes={state.taskTypes}
-                priorities={state.priorities}
+              <TodayViewShell
+                today={today}
+                dateLabel={formatPolishDateLabel(today)}
+                activeTasks={todayGroup.active}
+                completedToday={todayGroup.completedToday}
                 onAdd={handleCreateTask}
                 onComplete={handleCompleteTask}
-                onPostponeTomorrow={handlePostponeTaskToTomorrow}
                 onPostponeToDate={handlePostponeTaskToDate}
                 onDeactivate={handleDeactivateTask}
                 onEdit={openTaskEdit}

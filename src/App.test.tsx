@@ -162,97 +162,82 @@ describe("App", () => {
     expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
   });
 
-  it("postpones a task without recording completion", async () => {
+  it("renders the today operational header without filters", () => {
+    seedTodayTaskState();
+    renderApp({ now: new Date("2026-07-10T09:00:00.000Z") });
+
+    expect(screen.getByRole("heading", { name: "Dzisiaj" })).toBeInTheDocument();
+    expect(screen.getByText(/10 lipca 2026/)).toBeInTheDocument();
+    expect(screen.getByText("1 zadanie")).toBeInTheDocument();
+    expect(screen.queryByText("Filtrowanie")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /filtry/i })).not.toBeInTheDocument();
+  });
+
+  it("renders a compact active task row and expands inline details", async () => {
     seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Odloz na jutro" }));
+    expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
+    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
+    expect(screen.queryByText("Kategoria")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pokaz szczegoly: Podlac rosliny" }));
+
+    expect(screen.getByText("Kategoria")).toBeInTheDocument();
+    expect(screen.getByText("Dom")).toBeInTheDocument();
+    expect(screen.getByText("Osoba")).toBeInTheDocument();
+    expect(screen.getByText("Ola")).toBeInTheDocument();
+  });
+
+  it("shows the empty state when there are no active tasks", () => {
+    renderApp({ now: new Date("2026-07-10T09:00:00.000Z") });
+    expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
+  });
+
+  it("postpones a task using the quick menu actions", async () => {
+    seedTodayTaskState();
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Odloz: Podlac rosliny" }));
+    await user.click(screen.getByRole("button", { name: "Jutro" }));
 
     expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
     const stored = localStorage.getItem(STORAGE_KEY) ?? "";
-    expect(stored).toContain('"postponements"');
     expect(stored).toContain('"toDate":"2026-07-06"');
     expect(stored).not.toContain("completedDate");
   });
 
-  it("filters today list by category, assignee, task type, and priority", async () => {
-    seedState({
-      tasks: [
-        {
-          id: "task-1",
-          title: "Dom Oli",
-          categoryId: "cat-home",
-          assigneeId: "person-ola",
-          taskTypeId: "type-task",
-          priorityId: "priority-normal",
-          schedule: { mode: "oneTime", date: "2026-07-05" },
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        },
-        {
-          id: "task-2",
-          title: "Praca Jana",
-          categoryId: "cat-work",
-          assigneeId: "person-jan",
-          taskTypeId: "type-deadline",
-          priorityId: "priority-high",
-          schedule: { mode: "oneTime", date: "2026-07-05" },
-          active: true,
-          createdAt: "2026-07-05T08:00:00.000Z",
-          updatedAt: "2026-07-05T08:00:00.000Z"
-        }
-      ],
-      categories: [
-        { id: "cat-home", name: "Dom", color: "#40c057" },
-        { id: "cat-work", name: "Praca", color: "#228be6" }
-      ],
-      assignees: [
-        { id: "person-ola", name: "Ola" },
-        { id: "person-jan", name: "Jan" }
-      ],
-      taskTypes: [
-        { id: "type-task", name: "Zadanie", active: true, order: 0 },
-        { id: "type-deadline", name: "Termin", active: true, order: 1 }
-      ],
-      priorities: [
-        { id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" },
-        { id: "priority-high", name: "Wysoki", active: true, order: 1, color: "#fa5252" }
-      ],
-      completions: [],
-      postponements: []
-    });
-    renderApp();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Pokaz filtry" }));
-    await user.click(screen.getByRole("radio", { name: "Praca" }));
-    await user.click(screen.getAllByRole("combobox", { name: "Osoba" })[0]);
-    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    await user.click(screen.getAllByRole("combobox", { name: "Typ" })[0]);
-    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    await user.click(screen.getAllByRole("combobox", { name: "Priorytet" })[0]);
-    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-
-    const list = screen.getByRole("region", { name: "Zadania na dzisiaj" });
-    expect(within(list).getByRole("heading", { name: "Praca Jana" })).toBeInTheDocument();
-    expect(within(list).queryByRole("heading", { name: "Dom Oli" })).not.toBeInTheDocument();
-  });
-
-  it("postpones a task to a selected date without recording completion", async () => {
+  it("allows selecting a custom postpone date from the quick menu", async () => {
     seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText("Data odlozenia: Podlac rosliny"), "2026-07-12");
-    await user.click(screen.getByRole("button", { name: "Odloz do daty" }));
+    await user.click(screen.getByRole("button", { name: "Odloz: Podlac rosliny" }));
+    await user.click(screen.getByRole("button", { name: "Wybierz date" }));
+    await user.type(screen.getByLabelText("Wybierz date odlozenia: Podlac rosliny"), "2026-07-12");
+    await user.click(screen.getByRole("button", { name: "Zatwierdz odlozenie: Podlac rosliny" }));
 
     expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
     const stored = localStorage.getItem(STORAGE_KEY) ?? "";
     expect(stored).toContain('"fromDate":"2026-07-05"');
     expect(stored).toContain('"toDate":"2026-07-12"');
     expect(stored).not.toContain("completedDate");
+  });
+
+  it("moves completed tasks into the completed-today section immediately", async () => {
+    seedTodayTaskState();
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Wykonane" }));
+
+    expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" }));
+    expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
   });
 
   it("keeps recurring completion cycle based on the actual completion date", async () => {
