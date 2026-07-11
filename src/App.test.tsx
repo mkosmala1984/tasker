@@ -173,6 +173,11 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /filtry/i })).not.toBeInTheDocument();
   });
 
+  it("mounts the default visual theme on the app shell", () => {
+    renderApp();
+    expect(document.querySelector('[data-theme="olive-canvas"]')).toBeInTheDocument();
+  });
+
   it("renders a compact active task row and expands inline details", async () => {
     seedTodayTaskState();
     renderApp();

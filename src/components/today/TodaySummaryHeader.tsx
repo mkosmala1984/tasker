@@ -23,10 +23,10 @@ export function TodaySummaryHeader({ dateLabel, activeCount }: Props) {
   return (
     <Group justify="space-between" align="flex-start" gap="md">
       <Stack gap={4}>
-        <Title order={1}>Dzisiaj</Title>
-        <Text c="dimmed">{dateLabel}</Text>
+        <Title className="today-summary-title" order={1}>Dzisiaj</Title>
+        <Text className="today-summary-date">{dateLabel}</Text>
       </Stack>
-      <Badge color="green" variant="light" size="lg">
+      <Badge className="today-count" variant="light" size="lg">
         {getCountLabel(activeCount)}
       </Badge>
     </Group>

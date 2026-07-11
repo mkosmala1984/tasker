@@ -67,8 +67,8 @@ export default function App({ now = new Date() }: Props) {
   }
 
   return (
-    <Container className="app-shell" size="md">
-      <Stack gap="lg" py="xl">
+    <Container className="app-shell app-frame" size="xl" data-theme="olive-canvas">
+      <Stack gap="lg">
         <Group gap="xs" wrap="wrap">
           <Button variant={view === "today" ? "filled" : "default"} onClick={() => setView("today")}>
             Dzisiaj
@@ -94,7 +94,7 @@ export default function App({ now = new Date() }: Props) {
         </Group>
 
         {view === "today" ? (
-          <Paper withBorder p="lg" radius="md" shadow="xs">
+          <Paper className="today-surface" withBorder p="lg" radius="md" shadow="xs">
             <Stack gap="md">
               {storageError ? (
                 <Alert color="yellow" title="Problem z lokalnymi danymi">

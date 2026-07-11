@@ -22,12 +22,12 @@ export function TodayPostponeMenu({ item, today, onPostponeToDate }: Props) {
   }
 
   return (
-    <Stack gap="xs" align="flex-end">
+    <Stack className="today-postpone-menu" gap="xs" align="flex-end">
       <Button type="button" variant="default" aria-label={`Odloz: ${item.task.title}`} onClick={() => setMenuOpen((value) => !value)}>
         Odloz
       </Button>
       {menuOpen ? (
-        <Paper withBorder radius="md" p="xs">
+        <Paper className="today-postpone-panel" withBorder radius="md" p="xs">
           <Stack gap="xs">
             <Button type="button" variant="subtle" onClick={() => handlePostpone(addDays(today, 1))}>
               Jutro

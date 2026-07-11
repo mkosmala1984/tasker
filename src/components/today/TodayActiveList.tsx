@@ -27,7 +27,7 @@ export function TodayActiveList({
 }: Props) {
   if (activeTasks.length === 0) {
     return (
-      <Paper component="section" withBorder p="lg" radius="md">
+      <Paper className="today-empty" component="section" withBorder p="lg" radius="md">
         <Stack align="flex-start" gap="sm">
           <Title order={2}>Brak zadan na dzisiaj</Title>
           <Text c="dimmed">Wszystko domkniete. Dodaj nowe zadanie albo wroc tu jutro.</Text>
@@ -40,7 +40,7 @@ export function TodayActiveList({
   }
 
   return (
-    <Stack component="section" aria-label="Aktywne zadania" gap="sm">
+    <Stack className="today-active-list" component="section" aria-label="Aktywne zadania" gap={0}>
       {activeTasks.map((item) => {
         const expanded = expandedTaskIds.includes(item.task.id);
         return (

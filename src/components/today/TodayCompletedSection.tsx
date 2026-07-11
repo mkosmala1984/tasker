@@ -9,7 +9,7 @@ type Props = {
 
 export function TodayCompletedSection({ tasks, open, onToggle }: Props) {
   return (
-    <Paper withBorder radius="md" p="md" component="section" aria-label="Wykonane dzisiaj">
+    <Paper className="today-completed" withBorder radius="md" p="md" component="section" aria-label="Wykonane dzisiaj">
       <Stack gap="sm">
         <Button type="button" variant="subtle" onClick={onToggle}>
           {`Wykonane dzisiaj (${tasks.length})`}

@@ -19,20 +19,20 @@ export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComple
   const completionText = item.lastCompletedDate ? `Ostatnio wykonane: ${item.lastCompletedDate}` : "Jeszcze nie wykonano";
 
   return (
-    <Paper component="article" withBorder radius="md" p="md">
+    <Paper className="today-task-row" component="article" withBorder>
       <Stack gap="sm">
-        <Group justify="space-between" align="flex-start" gap="md">
+        <Group className="today-task-header" justify="space-between" align="flex-start" gap="md">
           <Stack gap={2}>
-            <Text fw={600}>{item.task.title}</Text>
-            <Text c="dimmed" size="sm">
+            <Text className="today-task-title" fw={600}>{item.task.title}</Text>
+            <Text className="today-task-meta">
               {completionText}
             </Text>
           </Stack>
-          <Group gap="xs" align="center">
-            <Badge color={item.isOverdue ? "orange" : "gray"} variant="light">
+          <Group className="today-task-actions" gap="xs" align="center">
+            <Badge className={item.isOverdue ? "today-status-overdue" : "today-status-current"} variant="light">
               {statusText}
             </Badge>
-            <Button type="button" color="green" onClick={() => onComplete(item.task.id, item.scheduledDate)}>
+            <Button className="today-complete-action" type="button" onClick={() => onComplete(item.task.id, item.scheduledDate)}>
               Wykonane
             </Button>
             <TodayPostponeMenu item={item} today={today} onPostponeToDate={onPostponeToDate} />

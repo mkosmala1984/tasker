@@ -7,7 +7,7 @@ import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MantineProvider>
+    <MantineProvider theme={{ primaryColor: "green", defaultRadius: "md" }}>
       <App />
     </MantineProvider>
   </StrictMode>
