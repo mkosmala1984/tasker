@@ -177,6 +177,40 @@ describe("taskerStore configuration and import actions", () => {
     expect(syncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
   });
 
+  it("restores the previous connection when credential persistence throws during activation", async () => {
+    const previousCredentials = { documentId: "old-document", editKey: "old-key" };
+    const nextCredentials = { documentId: "new-document", editKey: "new-key" };
+    useTaskerStore.getState().configureJsonHosting(previousCredentials);
+    useTaskerStore.setState({ observedRemoteRevision: 7, observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z" });
+    const originalState = useTaskerStore.getState().state;
+    creationMocks.createJsonHostingDocument.mockResolvedValue({
+      credentials: nextCredentials,
+      envelope: { version: 1, revision: 0, updatedAt: "2026-07-12T11:00:00.000Z", state: originalState }
+    });
+    syncMocks.start.mockReset();
+    syncMocks.stop.mockReset();
+    syncMocks.setCredentials.mockReset();
+    syncMocks.checkForRemoteUpdate.mockReset();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("Credential persistence failed");
+    });
+
+    await useTaskerStore.getState().createJsonHostingDocument();
+    setItem.mockRestore();
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      jsonHostingCredentials: previousCredentials,
+      state: originalState,
+      observedRemoteRevision: 7,
+      observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z",
+      jsonHostingStatus: { kind: "error", message: "Credential persistence failed" }
+    });
+    expect(syncMocks.stop).toHaveBeenCalledTimes(2);
+    expect(syncMocks.setCredentials).toHaveBeenCalledWith(previousCredentials);
+    expect(syncMocks.start).toHaveBeenCalledOnce();
+    expect(syncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
+  });
+
   it("persists a remote state loaded by the coordinator", () => {
     const remoteEnvelope: RemoteEnvelope = {
       version: 1,

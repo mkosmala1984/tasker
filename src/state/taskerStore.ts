@@ -220,23 +220,43 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
       if (activationStarted) {
         try {
           syncController.stop();
+        } catch {
+          // Continue restoring the remaining connection state.
+        }
+        try {
           if (previousCredentials === undefined) {
             clearJsonHostingCredentials();
           } else {
             saveJsonHostingCredentials(previousCredentials);
           }
+        } catch {
+          // Persistence restoration is best-effort.
+        }
+        try {
           set({
             jsonHostingCredentials: previousCredentials,
             observedRemoteRevision: previousObservedRemoteRevision,
             observedRemoteUpdatedAt: previousObservedRemoteUpdatedAt
           });
-          syncController.setCredentials(previousCredentials);
-          if (previousCredentials !== undefined) {
-            syncController.start();
-            syncController.checkForRemoteUpdate();
-          }
         } catch {
-          // The original activation error remains the user-visible failure.
+          // Continue restoring the remaining connection state.
+        }
+        try {
+          syncController.setCredentials(previousCredentials);
+        } catch {
+          // Continue restoring the remaining connection state.
+        }
+        if (previousCredentials !== undefined) {
+          try {
+            syncController.start();
+          } catch {
+            // The original activation error remains the user-visible failure.
+          }
+          try {
+            syncController.checkForRemoteUpdate();
+          } catch {
+            // The original activation error remains the user-visible failure.
+          }
         }
       }
       set({
