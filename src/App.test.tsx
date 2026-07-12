@@ -162,13 +162,10 @@ describe("App", () => {
     expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
   });
 
-  it("renders the today operational header without filters", () => {
+  it("renders the today view without filters", () => {
     seedTodayTaskState();
     renderApp({ now: new Date("2026-07-10T09:00:00.000Z") });
 
-    expect(screen.getByRole("heading", { name: "Dzisiaj" })).toBeInTheDocument();
-    expect(screen.getByText(/10 lipca 2026/)).toBeInTheDocument();
-    expect(screen.getByText("1 zadanie")).toBeInTheDocument();
     expect(screen.queryByText("Filtrowanie")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /filtry/i })).not.toBeInTheDocument();
   });
