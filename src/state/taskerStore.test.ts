@@ -142,6 +142,41 @@ describe("taskerStore configuration and import actions", () => {
     expect(syncMocks.checkForRemoteUpdate).not.toHaveBeenCalled();
   });
 
+  it("restores the previous connection and metadata when activating created credentials fails", async () => {
+    const previousCredentials = { documentId: "old-document", editKey: "old-key" };
+    const nextCredentials = { documentId: "new-document", editKey: "new-key" };
+    useTaskerStore.getState().configureJsonHosting(previousCredentials);
+    useTaskerStore.setState({ observedRemoteRevision: 7, observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z" });
+    const originalState = useTaskerStore.getState().state;
+    creationMocks.createJsonHostingDocument.mockResolvedValue({
+      credentials: nextCredentials,
+      envelope: { version: 1, revision: 0, updatedAt: "2026-07-12T11:00:00.000Z", state: originalState }
+    });
+    syncMocks.start.mockReset();
+    syncMocks.stop.mockReset();
+    syncMocks.setCredentials.mockReset();
+    syncMocks.checkForRemoteUpdate.mockReset();
+    syncMocks.setCredentials.mockImplementationOnce(() => {
+      throw new Error("Controller activation failed");
+    });
+
+    await useTaskerStore.getState().createJsonHostingDocument();
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      jsonHostingCredentials: previousCredentials,
+      state: originalState,
+      observedRemoteRevision: 7,
+      observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z",
+      jsonHostingStatus: { kind: "error", message: "Controller activation failed" }
+    });
+    expect(localStorage.getItem("tasker:jsonhosting:v1")).toBe(JSON.stringify(previousCredentials));
+    expect(syncMocks.stop).toHaveBeenCalledTimes(2);
+    expect(syncMocks.setCredentials).toHaveBeenNthCalledWith(1, nextCredentials);
+    expect(syncMocks.setCredentials).toHaveBeenNthCalledWith(2, previousCredentials);
+    expect(syncMocks.start).toHaveBeenCalledOnce();
+    expect(syncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
+  });
+
   it("persists a remote state loaded by the coordinator", () => {
     const remoteEnvelope: RemoteEnvelope = {
       version: 1,

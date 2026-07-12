@@ -197,9 +197,14 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   createJsonHostingDocument: async () => {
     const state = get().state;
     const updatedAt = new Date().toISOString();
+    const previousCredentials = get().jsonHostingCredentials;
+    const previousObservedRemoteRevision = get().observedRemoteRevision;
+    const previousObservedRemoteUpdatedAt = get().observedRemoteUpdatedAt;
+    let activationStarted = false;
     set({ jsonHostingStatus: { kind: "syncing" } });
     try {
       const { credentials, envelope } = await createJsonHostingDocument(state, updatedAt);
+      activationStarted = true;
       syncController.stop();
       saveJsonHostingCredentials(credentials);
       set({
@@ -212,6 +217,28 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
       syncController.start();
       syncController.checkForRemoteUpdate();
     } catch (error) {
+      if (activationStarted) {
+        try {
+          syncController.stop();
+          if (previousCredentials === undefined) {
+            clearJsonHostingCredentials();
+          } else {
+            saveJsonHostingCredentials(previousCredentials);
+          }
+          set({
+            jsonHostingCredentials: previousCredentials,
+            observedRemoteRevision: previousObservedRemoteRevision,
+            observedRemoteUpdatedAt: previousObservedRemoteUpdatedAt
+          });
+          syncController.setCredentials(previousCredentials);
+          if (previousCredentials !== undefined) {
+            syncController.start();
+            syncController.checkForRemoteUpdate();
+          }
+        } catch {
+          // The original activation error remains the user-visible failure.
+        }
+      }
       set({
         jsonHostingStatus: {
           kind: "error",
