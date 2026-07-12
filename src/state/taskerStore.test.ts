@@ -6,7 +6,18 @@ import { createExportPayload } from "../storage/taskerBackup";
 const syncMocks = vi.hoisted(() => ({
   scheduleSave: vi.fn(),
   replaceLocal: undefined as ((envelope: RemoteEnvelope) => void) | undefined,
-  confirmLocalSave: undefined as ((envelope: RemoteEnvelope) => void) | undefined
+  confirmLocalSave: undefined as ((envelope: RemoteEnvelope) => void) | undefined,
+  start: vi.fn(),
+  stop: vi.fn(),
+  setCredentials: vi.fn(),
+  checkForRemoteUpdate: vi.fn()
+}));
+
+const creationMocks = vi.hoisted(() => ({ createJsonHostingDocument: vi.fn() }));
+
+vi.mock("../storage/jsonHostingStorage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../storage/jsonHostingStorage")>()),
+  createJsonHostingDocument: creationMocks.createJsonHostingDocument
 }));
 
 vi.mock("./jsonHostingSync", () => ({
@@ -17,11 +28,11 @@ vi.mock("./jsonHostingSync", () => ({
     syncMocks.replaceLocal = options.replaceLocal;
     syncMocks.confirmLocalSave = options.confirmLocalSave;
     return {
-      start: vi.fn(),
-      stop: vi.fn(),
-      setCredentials: vi.fn(),
+      start: syncMocks.start,
+      stop: syncMocks.stop,
+      setCredentials: syncMocks.setCredentials,
       scheduleSave: syncMocks.scheduleSave,
-      checkForRemoteUpdate: vi.fn()
+      checkForRemoteUpdate: syncMocks.checkForRemoteUpdate
     };
   }
 }));
@@ -32,6 +43,11 @@ describe("taskerStore configuration and import actions", () => {
   beforeEach(() => {
     localStorage.clear();
     syncMocks.scheduleSave.mockReset();
+    syncMocks.start.mockReset();
+    syncMocks.stop.mockReset();
+    syncMocks.setCredentials.mockReset();
+    syncMocks.checkForRemoteUpdate.mockReset();
+    creationMocks.createJsonHostingDocument.mockReset();
     resetTaskerStore();
   });
 
@@ -47,6 +63,83 @@ describe("taskerStore configuration and import actions", () => {
     expect(syncMocks.scheduleSave).toHaveBeenCalledWith(
       expect.objectContaining({ categories: [expect.objectContaining({ name: "Dom" })] })
     );
+  });
+
+  it("activates newly created credentials only after document creation succeeds", async () => {
+    useTaskerStore.getState().configureJsonHosting({ documentId: "old-document", editKey: "old-key" });
+    useTaskerStore.setState({ observedRemoteRevision: 7, observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z" });
+    const originalState = useTaskerStore.getState().state;
+    const credentials = { documentId: "new-document", editKey: "new-key" };
+    const updatedAt = "2026-07-12T11:00:00.000Z";
+    let resolveCreation: (value: { credentials: typeof credentials; envelope: RemoteEnvelope }) => void;
+    creationMocks.createJsonHostingDocument.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreation = resolve;
+        })
+    );
+    syncMocks.start.mockReset();
+    syncMocks.stop.mockReset();
+    syncMocks.setCredentials.mockReset();
+    syncMocks.checkForRemoteUpdate.mockReset();
+
+    const creation = useTaskerStore.getState().createJsonHostingDocument();
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      jsonHostingCredentials: { documentId: "old-document", editKey: "old-key" },
+      state: originalState,
+      observedRemoteRevision: 7,
+      observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z",
+      jsonHostingStatus: { kind: "syncing" }
+    });
+    expect(syncMocks.stop).not.toHaveBeenCalled();
+
+    resolveCreation!({
+      credentials,
+      envelope: { version: 1, revision: 0, updatedAt, state: originalState }
+    });
+    await creation;
+
+    expect(creationMocks.createJsonHostingDocument).toHaveBeenCalledWith(originalState, expect.any(String));
+    expect(useTaskerStore.getState()).toMatchObject({
+      jsonHostingCredentials: credentials,
+      observedRemoteRevision: 0,
+      observedRemoteUpdatedAt: updatedAt
+    });
+    expect(localStorage.getItem("tasker:jsonhosting:v1")).toBe(JSON.stringify(credentials));
+    expect(syncMocks.stop).toHaveBeenCalledOnce();
+    expect(syncMocks.setCredentials).toHaveBeenCalledWith(credentials);
+    expect(syncMocks.start).toHaveBeenCalledOnce();
+    expect(syncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
+    expect(syncMocks.stop.mock.invocationCallOrder[0]).toBeLessThan(syncMocks.setCredentials.mock.invocationCallOrder[0]);
+    expect(syncMocks.setCredentials.mock.invocationCallOrder[0]).toBeLessThan(syncMocks.start.mock.invocationCallOrder[0]);
+  });
+
+  it("preserves the existing connection and metadata when document creation fails", async () => {
+    const credentials = { documentId: "old-document", editKey: "old-key" };
+    useTaskerStore.getState().configureJsonHosting(credentials);
+    useTaskerStore.setState({ observedRemoteRevision: 7, observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z" });
+    const originalState = useTaskerStore.getState().state;
+    creationMocks.createJsonHostingDocument.mockRejectedValue(new Error("Creation failed"));
+    syncMocks.start.mockReset();
+    syncMocks.stop.mockReset();
+    syncMocks.setCredentials.mockReset();
+    syncMocks.checkForRemoteUpdate.mockReset();
+
+    await useTaskerStore.getState().createJsonHostingDocument();
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      jsonHostingCredentials: credentials,
+      state: originalState,
+      observedRemoteRevision: 7,
+      observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z",
+      jsonHostingStatus: { kind: "error", message: "Creation failed" }
+    });
+    expect(localStorage.getItem("tasker:jsonhosting:v1")).toBe(JSON.stringify(credentials));
+    expect(syncMocks.stop).not.toHaveBeenCalled();
+    expect(syncMocks.setCredentials).not.toHaveBeenCalled();
+    expect(syncMocks.start).not.toHaveBeenCalled();
+    expect(syncMocks.checkForRemoteUpdate).not.toHaveBeenCalled();
   });
 
   it("persists a remote state loaded by the coordinator", () => {

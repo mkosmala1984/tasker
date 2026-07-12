@@ -22,6 +22,7 @@ import type { AppState, AppView, TaskDraft, TodayFilters } from "../domain/types
 import { previewImport as previewImportDomain, type ImportPreview } from "../storage/taskerBackup";
 import {
   clearJsonHostingCredentials,
+  createJsonHostingDocument,
   loadJsonHostingCredentials,
   saveJsonHostingCredentials,
   type JsonHostingCredentials
@@ -83,6 +84,7 @@ export type TaskerStore = {
   postponeTaskToDate: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
   postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
   configureJsonHosting: (credentials: JsonHostingCredentials) => void;
+  createJsonHostingDocument: () => Promise<void>;
   disconnectJsonHosting: () => void;
   startJsonHostingSync: () => void;
   stopJsonHostingSync: () => void;
@@ -191,6 +193,32 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
     set({ jsonHostingCredentials: credentials, jsonHostingStatus: { kind: "disconnected" } });
     syncController.start();
     syncController.checkForRemoteUpdate();
+  },
+  createJsonHostingDocument: async () => {
+    const state = get().state;
+    const updatedAt = new Date().toISOString();
+    set({ jsonHostingStatus: { kind: "syncing" } });
+    try {
+      const { credentials, envelope } = await createJsonHostingDocument(state, updatedAt);
+      syncController.stop();
+      saveJsonHostingCredentials(credentials);
+      set({
+        jsonHostingCredentials: credentials,
+        jsonHostingStatus: { kind: "disconnected" },
+        observedRemoteRevision: envelope.revision,
+        observedRemoteUpdatedAt: envelope.updatedAt
+      });
+      syncController.setCredentials(credentials);
+      syncController.start();
+      syncController.checkForRemoteUpdate();
+    } catch (error) {
+      set({
+        jsonHostingStatus: {
+          kind: "error",
+          message: error instanceof Error ? error.message : "Nie mozna utworzyc dokumentu JSONHosting."
+        }
+      });
+    }
   },
   disconnectJsonHosting: () => {
     clearJsonHostingCredentials();
