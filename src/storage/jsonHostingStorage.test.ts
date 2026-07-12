@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyState } from "./taskerStorage";
 import {
   clearJsonHostingCredentials,
+  createJsonHostingDocument,
   getRemoteEnvelope,
   JsonHostingError,
   JSON_HOSTING_CREDENTIALS_KEY,
@@ -106,5 +107,51 @@ describe("jsonHostingStorage", () => {
 
     await expect(patchRemoteEnvelope({ documentId: "abc123", editKey: "secret" }, envelope))
       .rejects.toMatchObject({ message: "Nie mozna zapisac danych w JSONHosting." });
+  });
+
+  it("POSTs a new envelope and returns its credentials without serializing the edit key", async () => {
+    const state = createEmptyState();
+    const updatedAt = "2026-07-12T11:00:00.000Z";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: "created-id", editKey: "created-key"
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createJsonHostingDocument(state, updatedAt)).resolves.toEqual({
+      credentials: { documentId: "created-id", editKey: "created-key" },
+      envelope: { version: 1, revision: 0, updatedAt, state }
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://jsonhosting.com/api/json",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ version: 1, revision: 0, updatedAt, state })
+      })
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty("editKey");
+  });
+
+  it("rejects unsuccessful document creation responses as JsonHostingError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
+
+    await expect(createJsonHostingDocument(createEmptyState(), "2026-07-12T11:00:00.000Z"))
+      .rejects.toBeInstanceOf(JsonHostingError);
+  });
+
+  it.each([
+    "not-json",
+    {},
+    { id: "", editKey: "created-key" },
+    { id: "created-id", editKey: " " },
+    { id: "created-id" },
+    { editKey: "created-key" }
+  ])("rejects invalid document creation replies as JsonHostingError", async (reply) => {
+    const body = reply === "not-json" ? reply : JSON.stringify(reply);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+
+    await expect(createJsonHostingDocument(createEmptyState(), "2026-07-12T11:00:00.000Z"))
+      .rejects.toBeInstanceOf(JsonHostingError);
   });
 });

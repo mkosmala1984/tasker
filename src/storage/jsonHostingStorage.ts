@@ -136,3 +136,37 @@ export async function patchRemoteEnvelope(
     throw new JsonHostingError("Nie mozna zapisac danych w JSONHosting.");
   }
 }
+
+export async function createJsonHostingDocument(
+  state: AppState,
+  updatedAt: string
+): Promise<{ credentials: JsonHostingCredentials; envelope: RemoteEnvelope }> {
+  const envelope: RemoteEnvelope = { version: 1, revision: 0, updatedAt, state };
+  const response = await fetch("https://jsonhosting.com/api/json", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(envelope)
+  });
+  if (!response.ok) {
+    throw new JsonHostingError("Nie mozna utworzyc dokumentu JSONHosting.");
+  }
+
+  try {
+    const reply: unknown = await response.json();
+    if (!isRecord(reply) || typeof reply.id !== "string" || typeof reply.editKey !== "string") {
+      throw new JsonHostingError("Nie mozna utworzyc dokumentu JSONHosting.");
+    }
+
+    const credentials = { documentId: reply.id, editKey: reply.editKey };
+    if (!isCredentials(credentials)) {
+      throw new JsonHostingError("Nie mozna utworzyc dokumentu JSONHosting.");
+    }
+
+    return { credentials, envelope };
+  } catch (error) {
+    if (error instanceof JsonHostingError) {
+      throw error;
+    }
+    throw new JsonHostingError("Nie mozna utworzyc dokumentu JSONHosting.");
+  }
+}
