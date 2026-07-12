@@ -22,6 +22,7 @@ const baseProps: ComponentProps<typeof DataTransferView> = {
   onApplyImport: vi.fn(),
   status: { kind: "disconnected" } as const,
   onConfigureJsonHosting: vi.fn(),
+  onCreateJsonHostingDocument: vi.fn(),
   onDisconnectJsonHosting: vi.fn()
 };
 
@@ -65,5 +66,21 @@ describe("DataTransferView", () => {
     await user.click(screen.getByRole("button", { name: "Rozlacz JSONHosting" }));
 
     expect(onDisconnectJsonHosting).toHaveBeenCalledOnce();
+  });
+
+  it("creates a public JSONHosting document from the current data and prevents duplicate requests", async () => {
+    const user = userEvent.setup();
+    const onCreateJsonHostingDocument = vi.fn(() => new Promise<void>(() => undefined));
+    renderView({ onCreateJsonHostingDocument });
+
+    const createButton = screen.getByRole("button", { name: "Utworz nowy dokument JSONHosting z biezacych danych" });
+    expect(screen.getByText(/utworz nowy publiczny dokument JSONHosting z biezacych danych/i)).toBeInTheDocument();
+    expect(screen.getByText(/zastapi aktualne polaczenie/i)).toBeInTheDocument();
+    expect(screen.getByText(/dokument.*publiczn/i)).toBeInTheDocument();
+
+    await user.click(createButton);
+
+    expect(onCreateJsonHostingDocument).toHaveBeenCalledOnce();
+    expect(createButton).toBeDisabled();
   });
 });

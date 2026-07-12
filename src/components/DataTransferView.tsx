@@ -12,6 +12,7 @@ type Props = {
   credentials?: JsonHostingCredentials;
   status: JsonHostingSyncStatus;
   onConfigureJsonHosting: (credentials: JsonHostingCredentials) => void;
+  onCreateJsonHostingDocument: () => Promise<void>;
   onDisconnectJsonHosting: () => void;
 };
 
@@ -52,12 +53,14 @@ export function DataTransferView({
   credentials,
   status,
   onConfigureJsonHosting,
+  onCreateJsonHostingDocument,
   onDisconnectJsonHosting
 }: Props) {
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [documentId, setDocumentId] = useState(credentials?.documentId ?? "");
   const [editKey, setEditKey] = useState(credentials?.editKey ?? "");
+  const [isCreatingJsonHostingDocument, setIsCreatingJsonHostingDocument] = useState(false);
   const jsonHostingStatus = getJsonHostingStatus(status);
   const canConfigureJsonHosting = documentId.trim().length > 0 && editKey.trim().length > 0;
 
@@ -103,6 +106,15 @@ export function DataTransferView({
     onConfigureJsonHosting({ documentId: documentId.trim(), editKey: editKey.trim() });
   }
 
+  async function createJsonHostingDocument() {
+    setIsCreatingJsonHostingDocument(true);
+    try {
+      await onCreateJsonHostingDocument();
+    } finally {
+      setIsCreatingJsonHostingDocument(false);
+    }
+  }
+
   return (
     <Stack gap="md">
       <Title order={2}>Dane</Title>
@@ -112,6 +124,18 @@ export function DataTransferView({
       <Alert color={jsonHostingStatus.color} title="Synchronizacja JSONHosting">
         {jsonHostingStatus.message}
       </Alert>
+      <Stack gap="xs">
+        <Text>
+          Utworz nowy publiczny dokument JSONHosting z biezacych danych. Zastapi aktualne polaczenie JSONHosting.
+        </Text>
+        <Button
+          type="button"
+          onClick={() => void createJsonHostingDocument()}
+          disabled={isCreatingJsonHostingDocument}
+        >
+          Utworz nowy dokument JSONHosting z biezacych danych
+        </Button>
+      </Stack>
       <Input.Wrapper label="ID dokumentu JSONHosting">
         <Input value={documentId} onChange={(event) => setDocumentId(event.currentTarget.value)} />
       </Input.Wrapper>

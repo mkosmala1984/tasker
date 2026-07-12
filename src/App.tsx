@@ -61,6 +61,7 @@ export default function App({ now = new Date() }: Props) {
   const jsonHostingCredentials = useTaskerStore((store) => store.jsonHostingCredentials);
   const jsonHostingStatus = useTaskerStore((store) => store.jsonHostingStatus);
   const configureJsonHosting = useTaskerStore((store) => store.configureJsonHosting);
+  const createJsonHostingDocument = useTaskerStore((store) => store.createJsonHostingDocument);
   const disconnectJsonHosting = useTaskerStore((store) => store.disconnectJsonHosting);
   const startJsonHostingSync = useTaskerStore((store) => store.startJsonHostingSync);
   const stopJsonHostingSync = useTaskerStore((store) => store.stopJsonHostingSync);
@@ -197,6 +198,7 @@ export default function App({ now = new Date() }: Props) {
               credentials={jsonHostingCredentials}
               status={jsonHostingStatus}
               onConfigureJsonHosting={configureJsonHosting}
+              onCreateJsonHostingDocument={createJsonHostingDocument}
               onDisconnectJsonHosting={disconnectJsonHosting}
             />
           </Paper>

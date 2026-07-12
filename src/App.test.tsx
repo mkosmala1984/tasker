@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -431,6 +431,26 @@ describe("App", () => {
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:tasker-export");
+  });
+
+  it("wires JSONHosting document creation from the Dane view to the store", async () => {
+    const originalCreate = useTaskerStore.getState().createJsonHostingDocument;
+    const createJsonHostingDocument = vi.fn().mockResolvedValue(undefined);
+    useTaskerStore.setState({ createJsonHostingDocument });
+
+    try {
+      renderApp();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Dane" }));
+      await user.click(screen.getByRole("button", { name: "Utworz nowy dokument JSONHosting z biezacych danych" }));
+
+      expect(createJsonHostingDocument).toHaveBeenCalledOnce();
+    } finally {
+      act(() => {
+        useTaskerStore.setState({ createJsonHostingDocument: originalCreate });
+      });
+    }
   });
 
   it("validates import before confirmation and does not overwrite data on error", async () => {
