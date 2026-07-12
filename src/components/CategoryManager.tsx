@@ -84,7 +84,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDeactivate }: P
                   {editingId === category.id ? (
                     <TextInput aria-label={`Kolor ${category.name}`} value={editColor} onChange={(event) => setEditColor(event.currentTarget.value)} />
                   ) : (
-                    category.color
+                    ''
                   )}
                 </Group>
               </Table.Td>
