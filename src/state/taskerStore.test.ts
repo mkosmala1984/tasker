@@ -5,12 +5,17 @@ import { createExportPayload } from "../storage/taskerBackup";
 
 const syncMocks = vi.hoisted(() => ({
   scheduleSave: vi.fn(),
-  replaceLocal: undefined as ((envelope: RemoteEnvelope) => void) | undefined
+  replaceLocal: undefined as ((envelope: RemoteEnvelope) => void) | undefined,
+  confirmLocalSave: undefined as ((envelope: RemoteEnvelope) => void) | undefined
 }));
 
 vi.mock("./jsonHostingSync", () => ({
-  createJsonHostingSyncController: (options: { replaceLocal: (envelope: RemoteEnvelope) => void }) => {
+  createJsonHostingSyncController: (options: {
+    replaceLocal: (envelope: RemoteEnvelope) => void;
+    confirmLocalSave: (envelope: RemoteEnvelope) => void;
+  }) => {
     syncMocks.replaceLocal = options.replaceLocal;
+    syncMocks.confirmLocalSave = options.confirmLocalSave;
     return {
       start: vi.fn(),
       stop: vi.fn(),
@@ -62,6 +67,20 @@ describe("taskerStore configuration and import actions", () => {
     expect(useTaskerStore.getState()).toMatchObject({
       observedRemoteRevision: remoteEnvelope.revision,
       observedRemoteUpdatedAt: remoteEnvelope.updatedAt
+    });
+  });
+
+  it("advances the observed remote metadata after the coordinator confirms a local write", () => {
+    syncMocks.confirmLocalSave?.({
+      version: 1,
+      revision: 5,
+      updatedAt: "2026-07-12T10:03:00.000Z",
+      state: useTaskerStore.getState().state
+    });
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      observedRemoteRevision: 5,
+      observedRemoteUpdatedAt: "2026-07-12T10:03:00.000Z"
     });
   });
 
@@ -137,5 +156,48 @@ describe("taskerStore calendar state", () => {
       toDate: "2026-07-20"
     });
     expect(localStorage.getItem(STORAGE_KEY)).toContain("2026-07-20");
+  });
+});
+
+describe("taskerStore JSONHosting controller integration", () => {
+  it("patches consecutive mutations at successive remote revisions", async () => {
+    vi.useFakeTimers();
+    vi.doUnmock("./jsonHostingSync");
+    vi.resetModules();
+    localStorage.clear();
+    const { resetTaskerStore: resetRealStore, useTaskerStore: useRealStore } = await import("./taskerStore");
+    resetRealStore();
+    let remote: RemoteEnvelope = {
+      version: 1,
+      revision: 0,
+      updatedAt: "2026-07-12T10:00:00.000Z",
+      state: useRealStore.getState().state
+    };
+    const patchedEnvelopes: RemoteEnvelope[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PATCH") {
+          remote = JSON.parse(init.body as string) as RemoteEnvelope;
+          patchedEnvelopes.push(remote);
+          return { ok: true } as Response;
+        }
+        return { ok: true, json: async () => remote } as Response;
+      })
+    );
+
+    useRealStore.getState().configureJsonHosting({ documentId: "abc123", editKey: "secret" });
+    await vi.advanceTimersByTimeAsync(0);
+    useRealStore.getState().addCategory({ name: "Dom", color: "#40c057" });
+    await vi.advanceTimersByTimeAsync(750);
+    useRealStore.getState().addTaskType({ name: "Termin" });
+    await vi.advanceTimersByTimeAsync(750);
+
+    expect(patchedEnvelopes).toHaveLength(2);
+    expect(patchedEnvelopes.map((envelope) => envelope.revision)).toEqual([1, 2]);
+    expect(useRealStore.getState().state).toEqual(patchedEnvelopes[1].state);
+
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });

@@ -224,6 +224,11 @@ const syncController: JsonHostingSyncController = createJsonHostingSyncControlle
       observedRemoteUpdatedAt: envelope.updatedAt
     });
   },
+  confirmLocalSave: (envelope) =>
+    useTaskerStore.setState({
+      observedRemoteRevision: envelope.revision,
+      observedRemoteUpdatedAt: envelope.updatedAt
+    }),
   setStatus: (jsonHostingStatus) => useTaskerStore.setState({ jsonHostingStatus })
 });
 

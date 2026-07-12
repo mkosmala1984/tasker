@@ -35,6 +35,7 @@ export type JsonHostingSyncOptions = {
   credentials?: JsonHostingCredentials;
   getLocalSnapshot(): LocalSnapshot;
   replaceLocal(envelope: RemoteEnvelope): void;
+  confirmLocalSave(envelope: RemoteEnvelope): void;
   setStatus(status: JsonHostingSyncStatus): void;
   getRemoteEnvelope?(credentials: JsonHostingCredentials): Promise<RemoteEnvelope>;
   patchRemoteEnvelope?(credentials: JsonHostingCredentials, envelope: RemoteEnvelope): Promise<void>;
@@ -171,6 +172,7 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
         if (pendingState === stateToSave) {
           pendingState = undefined;
         }
+        options.confirmLocalSave(nextEnvelope);
         options.setStatus({ kind: "synced", at: nextEnvelope.updatedAt });
       } catch (error) {
         options.setStatus({ kind: "error", message: errorMessage(error) });

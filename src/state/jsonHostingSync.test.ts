@@ -32,17 +32,19 @@ function createController(snapshot = { observedRevision: 3, updatedAt: "2026-07-
   const getRemoteEnvelope = vi.fn<(credentials: JsonHostingCredentials) => Promise<RemoteEnvelope>>();
   const patchRemoteEnvelope = vi.fn<(credentials: JsonHostingCredentials, remote: RemoteEnvelope) => Promise<void>>();
   const replaceLocal = vi.fn();
+  const confirmLocalSave = vi.fn();
   const setStatus = vi.fn<(status: JsonHostingSyncStatus) => void>();
   const controller = createJsonHostingSyncController({
     credentials,
     getLocalSnapshot: () => ({ state: baseState, ...snapshot }),
     replaceLocal,
+    confirmLocalSave,
     setStatus,
     getRemoteEnvelope,
     patchRemoteEnvelope
   });
 
-  return { controller, getRemoteEnvelope, patchRemoteEnvelope, replaceLocal, setStatus };
+  return { controller, getRemoteEnvelope, patchRemoteEnvelope, replaceLocal, confirmLocalSave, setStatus };
 }
 
 describe("jsonHostingSync", () => {
@@ -91,6 +93,47 @@ describe("jsonHostingSync", () => {
     expect(getRemoteEnvelope).toHaveBeenCalledTimes(2);
     expect(replaceLocal).toHaveBeenCalledWith(remoteWinner);
     expect(setStatus).toHaveBeenLastCalledWith({ kind: "remote-loaded", at: remoteWinner.updatedAt });
+  });
+
+  it("confirms each successful local write so a later mutation patches the next revision", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-12T10:01:00.000Z"));
+    const observed = { revision: 3, updatedAt: "2026-07-12T10:00:00.000Z" };
+    const getRemoteEnvelope = vi.fn<(credentials: JsonHostingCredentials) => Promise<RemoteEnvelope>>();
+    const patchRemoteEnvelope = vi.fn<(credentials: JsonHostingCredentials, remote: RemoteEnvelope) => Promise<void>>();
+    const replaceLocal = vi.fn();
+    const confirmLocalSave = vi.fn((saved: RemoteEnvelope) => {
+      observed.revision = saved.revision;
+      observed.updatedAt = saved.updatedAt;
+    });
+    const controller = createJsonHostingSyncController({
+      credentials,
+      getLocalSnapshot: () => ({ state: baseState, observedRevision: observed.revision, updatedAt: observed.updatedAt }),
+      replaceLocal,
+      confirmLocalSave,
+      setStatus: vi.fn(),
+      getRemoteEnvelope,
+      patchRemoteEnvelope
+    });
+    const firstWriteAt = "2026-07-12T10:01:00.000Z";
+    const secondWriteAt = "2026-07-12T10:02:00.000Z";
+    getRemoteEnvelope
+      .mockResolvedValueOnce(envelope(3))
+      .mockResolvedValueOnce(envelope(4, firstWriteAt, changedState))
+      .mockResolvedValueOnce(envelope(4, firstWriteAt, changedState))
+      .mockResolvedValueOnce(envelope(5, secondWriteAt, laterChangedState));
+    patchRemoteEnvelope.mockResolvedValue();
+
+    controller.scheduleSave(changedState);
+    await vi.advanceTimersByTimeAsync(750);
+    vi.setSystemTime(new Date(secondWriteAt));
+    controller.scheduleSave(laterChangedState);
+    await vi.advanceTimersByTimeAsync(750);
+
+    expect(confirmLocalSave).toHaveBeenCalledTimes(2);
+    expect(patchRemoteEnvelope).toHaveBeenNthCalledWith(1, credentials, expect.objectContaining({ revision: 4, state: changedState }));
+    expect(patchRemoteEnvelope).toHaveBeenNthCalledWith(2, credentials, expect.objectContaining({ revision: 5, state: laterChangedState }));
+    expect(replaceLocal).not.toHaveBeenCalled();
   });
 
   it("polls once per minute and stop clears polling", async () => {
