@@ -1,13 +1,36 @@
 import { Alert, Button, Group, Input, Stack, Text, Title } from "@mantine/core";
 import { useState } from "react";
 import type { AppState } from "../domain/types";
+import type { JsonHostingCredentials } from "../storage/jsonHostingStorage";
 import { createExportPayload, serializeExportPayload, type ImportPreview } from "../storage/taskerBackup";
+import type { JsonHostingSyncStatus } from "../state/jsonHostingSync";
 
 type Props = {
   state: AppState;
   onPreviewImport: (raw: string) => ImportPreview;
   onApplyImport: (preview: ImportPreview) => void;
+  credentials?: JsonHostingCredentials;
+  status: JsonHostingSyncStatus;
+  onConfigureJsonHosting: (credentials: JsonHostingCredentials) => void;
+  onDisconnectJsonHosting: () => void;
 };
+
+function getJsonHostingStatus(status: JsonHostingSyncStatus): { color: string; message: string } {
+  switch (status.kind) {
+    case "checking":
+      return { color: "blue", message: "Sprawdzanie danych JSONHosting." };
+    case "syncing":
+      return { color: "blue", message: "Synchronizowanie danych JSONHosting." };
+    case "synced":
+      return { color: "green", message: "Zsynchronizowano dane z JSONHosting." };
+    case "remote-loaded":
+      return { color: "green", message: "Wczytano nowsze dane z JSONHosting." };
+    case "error":
+      return { color: "red", message: status.message };
+    case "disconnected":
+      return { color: "gray", message: "JSONHosting nie jest polaczony." };
+  }
+}
 
 function readFileText(file: File): Promise<string> {
   if ("text" in file && typeof file.text === "function") {
@@ -22,9 +45,21 @@ function readFileText(file: File): Promise<string> {
   });
 }
 
-export function DataTransferView({ state, onPreviewImport, onApplyImport }: Props) {
+export function DataTransferView({
+  state,
+  onPreviewImport,
+  onApplyImport,
+  credentials,
+  status,
+  onConfigureJsonHosting,
+  onDisconnectJsonHosting
+}: Props) {
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [documentId, setDocumentId] = useState(credentials?.documentId ?? "");
+  const [editKey, setEditKey] = useState(credentials?.editKey ?? "");
+  const jsonHostingStatus = getJsonHostingStatus(status);
+  const canConfigureJsonHosting = documentId.trim().length > 0 && editKey.trim().length > 0;
 
   function exportData() {
     const payload = createExportPayload(state, new Date().toISOString());
@@ -61,9 +96,38 @@ export function DataTransferView({ state, onPreviewImport, onApplyImport }: Prop
     setError(undefined);
   }
 
+  function configureJsonHosting() {
+    if (!canConfigureJsonHosting) {
+      return;
+    }
+    onConfigureJsonHosting({ documentId: documentId.trim(), editKey: editKey.trim() });
+  }
+
   return (
     <Stack gap="md">
       <Title order={2}>Dane</Title>
+      <Alert color="yellow" title="Uwaga: publiczne dane">
+        Dokumenty JSONHosting sa publicznie dostepne. Nie zapisuj w nich poufnych danych.
+      </Alert>
+      <Alert color={jsonHostingStatus.color} title="Synchronizacja JSONHosting">
+        {jsonHostingStatus.message}
+      </Alert>
+      <Input.Wrapper label="ID dokumentu JSONHosting">
+        <Input value={documentId} onChange={(event) => setDocumentId(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Input.Wrapper label="Klucz edycji JSONHosting">
+        <Input type="password" value={editKey} onChange={(event) => setEditKey(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Group>
+        <Button type="button" onClick={configureJsonHosting} disabled={!canConfigureJsonHosting}>
+          Polacz z JSONHosting
+        </Button>
+        {credentials ? (
+          <Button type="button" color="red" variant="light" onClick={onDisconnectJsonHosting}>
+            Rozlacz JSONHosting
+          </Button>
+        ) : null}
+      </Group>
       <Group>
         <Button type="button" onClick={exportData}>
           Eksportuj dane

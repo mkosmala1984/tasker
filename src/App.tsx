@@ -1,4 +1,5 @@
 import { Alert, Button, Container, Paper, Stack, Title } from "@mantine/core";
+import { useEffect } from "react";
 import { CategoryManager } from "./components/CategoryManager";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
@@ -57,6 +58,12 @@ export default function App({ now = new Date() }: Props) {
   const movePriority = useTaskerStore((store) => store.movePriority);
   const previewImport = useTaskerStore((store) => store.previewImport);
   const applyImport = useTaskerStore((store) => store.applyImport);
+  const jsonHostingCredentials = useTaskerStore((store) => store.jsonHostingCredentials);
+  const jsonHostingStatus = useTaskerStore((store) => store.jsonHostingStatus);
+  const configureJsonHosting = useTaskerStore((store) => store.configureJsonHosting);
+  const disconnectJsonHosting = useTaskerStore((store) => store.disconnectJsonHosting);
+  const startJsonHostingSync = useTaskerStore((store) => store.startJsonHostingSync);
+  const stopJsonHostingSync = useTaskerStore((store) => store.stopJsonHostingSync);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
   const postponeTask = useTaskerStore((store) => store.postponeTask);
@@ -64,6 +71,11 @@ export default function App({ now = new Date() }: Props) {
   const openTaskEdit = useTaskerStore((store) => store.openTaskEdit);
   const today = getTodayString(now);
   const todayGroup = buildTodayTaskGroup(state, today);
+
+  useEffect(() => {
+    startJsonHostingSync();
+    return stopJsonHostingSync;
+  }, [startJsonHostingSync, stopJsonHostingSync]);
 
   function handleCreateTask() {
     openTaskCreate();
@@ -178,7 +190,15 @@ export default function App({ now = new Date() }: Props) {
         ) : null}
         {view === "data" ? (
           <Paper withBorder p="lg" radius="md" shadow="xs">
-            <DataTransferView state={state} onPreviewImport={previewImport} onApplyImport={applyImport} />
+            <DataTransferView
+              state={state}
+              onPreviewImport={previewImport}
+              onApplyImport={applyImport}
+              credentials={jsonHostingCredentials}
+              status={jsonHostingStatus}
+              onConfigureJsonHosting={configureJsonHosting}
+              onDisconnectJsonHosting={disconnectJsonHosting}
+            />
           </Paper>
         ) : null}
       </Stack>

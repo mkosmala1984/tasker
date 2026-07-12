@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID, STORAGE_KEY } from "./storage/taskerStorage";
-import { resetTaskerStore } from "./state/taskerStore";
+import { resetTaskerStore, useTaskerStore } from "./state/taskerStore";
 
 function renderApp({ now = new Date(2026, 6, 5, 9, 0) }: { now?: Date } = {}) {
   render(
@@ -176,6 +176,28 @@ describe("App", () => {
   it("mounts the default visual theme on the app shell", () => {
     renderApp();
     expect(document.querySelector('[data-theme="olive-canvas"]')).toBeInTheDocument();
+  });
+
+  it("starts JSONHosting synchronization on mount and stops it on unmount", () => {
+    const originalStart = useTaskerStore.getState().startJsonHostingSync;
+    const originalStop = useTaskerStore.getState().stopJsonHostingSync;
+    const startJsonHostingSync = vi.fn();
+    const stopJsonHostingSync = vi.fn();
+    useTaskerStore.setState({ startJsonHostingSync, stopJsonHostingSync });
+
+    try {
+      const { unmount } = render(
+        <MantineProvider>
+          <App />
+        </MantineProvider>
+      );
+
+      expect(startJsonHostingSync).toHaveBeenCalledOnce();
+      unmount();
+      expect(stopJsonHostingSync).toHaveBeenCalledOnce();
+    } finally {
+      useTaskerStore.setState({ startJsonHostingSync: originalStart, stopJsonHostingSync: originalStop });
+    }
   });
 
   it("renders a compact active task row and expands inline details", async () => {
