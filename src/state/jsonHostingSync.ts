@@ -158,6 +158,16 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
         if (credentials !== activeCredentials) {
           return;
         }
+
+        // JSONHosting has no compare-and-swap, so this best-effort read detects a remote winner but cannot eliminate the final simultaneous-PATCH race.
+        const storedEnvelope = await getRemoteEnvelope(activeCredentials);
+        if (credentials !== activeCredentials) {
+          return;
+        }
+        if (isRemoteNewer(storedEnvelope, nextEnvelope.revision, nextEnvelope.updatedAt)) {
+          replaceWithRemote(storedEnvelope);
+          return;
+        }
         if (pendingState === stateToSave) {
           pendingState = undefined;
         }

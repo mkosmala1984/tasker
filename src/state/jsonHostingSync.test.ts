@@ -61,7 +61,7 @@ describe("jsonHostingSync", () => {
     controller.scheduleSave(laterChangedState);
     await vi.advanceTimersByTimeAsync(750);
 
-    expect(getRemoteEnvelope).toHaveBeenCalledTimes(1);
+    expect(getRemoteEnvelope).toHaveBeenCalledTimes(2);
     expect(patchRemoteEnvelope).toHaveBeenCalledWith(credentials, expect.objectContaining({ revision: 4, state: laterChangedState }));
   });
 
@@ -75,6 +75,22 @@ describe("jsonHostingSync", () => {
 
     expect(replaceLocal).toHaveBeenCalledWith(expect.objectContaining({ revision: 4, state: remoteState }));
     expect(patchRemoteEnvelope).not.toHaveBeenCalled();
+  });
+
+  it("loads the remote winner when it changes after a successful PATCH", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-12T10:01:00.000Z"));
+    const { controller, getRemoteEnvelope, patchRemoteEnvelope, replaceLocal, setStatus } = createController();
+    const remoteWinner = envelope(4, "2026-07-12T10:03:00.000Z", remoteState);
+    getRemoteEnvelope.mockResolvedValueOnce(envelope(3)).mockResolvedValueOnce(remoteWinner);
+    patchRemoteEnvelope.mockResolvedValue();
+
+    controller.scheduleSave(changedState);
+    await vi.advanceTimersByTimeAsync(750);
+
+    expect(getRemoteEnvelope).toHaveBeenCalledTimes(2);
+    expect(replaceLocal).toHaveBeenCalledWith(remoteWinner);
+    expect(setStatus).toHaveBeenLastCalledWith({ kind: "remote-loaded", at: remoteWinner.updatedAt });
   });
 
   it("polls once per minute and stop clears polling", async () => {
