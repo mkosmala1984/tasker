@@ -20,7 +20,18 @@ import { emptyHistoryFilters, type HistoryFilters } from "../domain/history";
 import { addTask, completeTask, deactivateTask, postponeTask, updateTask } from "../domain/tasks";
 import type { AppState, AppView, TaskDraft, TodayFilters } from "../domain/types";
 import { previewImport as previewImportDomain, type ImportPreview } from "../storage/taskerBackup";
+import {
+  clearJsonHostingCredentials,
+  loadJsonHostingCredentials,
+  saveJsonHostingCredentials,
+  type JsonHostingCredentials
+} from "../storage/jsonHostingStorage";
 import { loadState, saveState } from "../storage/taskerStorage";
+import {
+  createJsonHostingSyncController,
+  type JsonHostingSyncController,
+  type JsonHostingSyncStatus
+} from "./jsonHostingSync";
 
 export const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
 
@@ -34,6 +45,10 @@ function createId(prefix: string): string {
 export type TaskerStore = {
   state: AppState;
   storageError?: string;
+  jsonHostingCredentials?: JsonHostingCredentials;
+  jsonHostingStatus: JsonHostingSyncStatus;
+  observedRemoteRevision: number;
+  observedRemoteUpdatedAt: string;
   filters: TodayFilters;
   historyFilters: HistoryFilters;
   view: AppView;
@@ -67,6 +82,10 @@ export type TaskerStore = {
   postponeTask: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
   postponeTaskToDate: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
   postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
+  configureJsonHosting: (credentials: JsonHostingCredentials) => void;
+  disconnectJsonHosting: () => void;
+  startJsonHostingSync: () => void;
+  stopJsonHostingSync: () => void;
   reset: () => void;
 };
 
@@ -76,6 +95,10 @@ function loadInitialStoreState() {
   return {
     state: initial.state,
     storageError: initial.error,
+    jsonHostingCredentials: loadJsonHostingCredentials(),
+    jsonHostingStatus: { kind: "disconnected" } as JsonHostingSyncStatus,
+    observedRemoteRevision: 0,
+    observedRemoteUpdatedAt: "",
     filters: emptyFilters,
     historyFilters: emptyHistoryFilters,
     view: "today" as AppView,
@@ -87,6 +110,9 @@ function loadInitialStoreState() {
 
 function persist(nextState: AppState): Pick<TaskerStore, "state"> {
   saveState(nextState);
+  if (useTaskerStore.getState().jsonHostingCredentials !== undefined) {
+    syncController.scheduleSave(nextState);
+  }
   return { state: nextState };
 }
 
@@ -159,8 +185,52 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
     const today = getTodayString(now);
     set(persist(postponeTask(get().state, taskId, scheduledDate, addDays(today, 1), now.toISOString())));
   },
-  reset: () => set(loadInitialStoreState())
+  configureJsonHosting: (credentials) => {
+    saveJsonHostingCredentials(credentials);
+    syncController.setCredentials(credentials);
+    set({ jsonHostingCredentials: credentials, jsonHostingStatus: { kind: "disconnected" } });
+    syncController.start();
+    syncController.checkForRemoteUpdate();
+  },
+  disconnectJsonHosting: () => {
+    clearJsonHostingCredentials();
+    syncController.stop();
+    syncController.setCredentials(undefined);
+    set({ jsonHostingCredentials: undefined, jsonHostingStatus: { kind: "disconnected" } });
+  },
+  startJsonHostingSync: () => {
+    syncController.start();
+    syncController.checkForRemoteUpdate();
+  },
+  stopJsonHostingSync: () => syncController.stop(),
+  reset: () => {
+    const initial = loadInitialStoreState();
+    syncController.setCredentials(initial.jsonHostingCredentials);
+    set(initial);
+  }
 }));
+
+const syncController: JsonHostingSyncController = createJsonHostingSyncController({
+  credentials: useTaskerStore.getState().jsonHostingCredentials,
+  getLocalSnapshot: () => {
+    const { state, observedRemoteRevision, observedRemoteUpdatedAt } = useTaskerStore.getState();
+    return { state, observedRevision: observedRemoteRevision, updatedAt: observedRemoteUpdatedAt };
+  },
+  replaceLocal: (envelope) => {
+    saveState(envelope.state);
+    useTaskerStore.setState({
+      state: envelope.state,
+      observedRemoteRevision: envelope.revision,
+      observedRemoteUpdatedAt: envelope.updatedAt
+    });
+  },
+  setStatus: (jsonHostingStatus) => useTaskerStore.setState({ jsonHostingStatus })
+});
+
+if (useTaskerStore.getState().jsonHostingCredentials !== undefined) {
+  syncController.start();
+  syncController.checkForRemoteUpdate();
+}
 
 export function resetTaskerStore(): void {
   useTaskerStore.getState().reset();

@@ -1,12 +1,68 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { RemoteEnvelope } from "../storage/jsonHostingStorage";
 import { STORAGE_KEY } from "../storage/taskerStorage";
 import { createExportPayload } from "../storage/taskerBackup";
+
+const syncMocks = vi.hoisted(() => ({
+  scheduleSave: vi.fn(),
+  replaceLocal: undefined as ((envelope: RemoteEnvelope) => void) | undefined
+}));
+
+vi.mock("./jsonHostingSync", () => ({
+  createJsonHostingSyncController: (options: { replaceLocal: (envelope: RemoteEnvelope) => void }) => {
+    syncMocks.replaceLocal = options.replaceLocal;
+    return {
+      start: vi.fn(),
+      stop: vi.fn(),
+      setCredentials: vi.fn(),
+      scheduleSave: syncMocks.scheduleSave,
+      checkForRemoteUpdate: vi.fn()
+    };
+  }
+}));
+
 import { resetTaskerStore, useTaskerStore } from "./taskerStore";
 
 describe("taskerStore configuration and import actions", () => {
   beforeEach(() => {
     localStorage.clear();
+    syncMocks.scheduleSave.mockReset();
     resetTaskerStore();
+  });
+
+  it("persists locally before it schedules remote synchronization", () => {
+    syncMocks.scheduleSave.mockImplementation((state) => {
+      expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(state));
+    });
+
+    useTaskerStore.getState().configureJsonHosting({ documentId: "abc123", editKey: "secret" });
+    useTaskerStore.getState().addCategory({ name: "Dom", color: "#40c057" });
+
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("Dom");
+    expect(syncMocks.scheduleSave).toHaveBeenCalledWith(
+      expect.objectContaining({ categories: [expect.objectContaining({ name: "Dom" })] })
+    );
+  });
+
+  it("persists a remote state loaded by the coordinator", () => {
+    const remoteEnvelope: RemoteEnvelope = {
+      version: 1,
+      revision: 4,
+      updatedAt: "2026-07-12T10:00:00.000Z",
+      state: {
+        ...useTaskerStore.getState().state,
+        categories: [{ id: "category-remote", name: "Zdalne", color: "#228be6" }]
+      }
+    };
+
+    syncMocks.replaceLocal?.(remoteEnvelope);
+
+    expect(useTaskerStore.getState().state).toEqual(remoteEnvelope.state);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(remoteEnvelope.state));
+    expect(useTaskerStore.getState()).toMatchObject({
+      observedRemoteRevision: remoteEnvelope.revision,
+      observedRemoteUpdatedAt: remoteEnvelope.updatedAt
+    });
   });
 
   it("persists configuration changes", () => {
