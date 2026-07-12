@@ -32,6 +32,12 @@ describe("jsonHostingStorage", () => {
     expect(loadJsonHostingCredentials()).toBeUndefined();
   });
 
+  it("returns undefined when stored credentials are invalid JSON", () => {
+    localStorage.setItem(JSON_HOSTING_CREDENTIALS_KEY, "{");
+
+    expect(loadJsonHostingCredentials()).toBeUndefined();
+  });
+
   it("clears only the JSONHosting credentials", () => {
     saveJsonHostingCredentials({ documentId: "abc123", editKey: "secret" });
     localStorage.setItem("unrelated", "value");

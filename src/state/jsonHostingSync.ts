@@ -56,6 +56,7 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
   let inFlight: Promise<void> | undefined;
   let pendingState: AppState | undefined;
   let started = false;
+  let credentialGeneration = 0;
 
   const getRemoteEnvelope = options.getRemoteEnvelope ?? getRemoteEnvelopeFromStorage;
   const patchRemoteEnvelope = options.patchRemoteEnvelope ?? patchRemoteEnvelopeFromStorage;
@@ -72,6 +73,10 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
       clearInterval(pollingInterval);
       pollingInterval = undefined;
     }
+  }
+
+  function areCredentialsCurrent(activeCredentials: JsonHostingCredentials, activeGeneration: number): boolean {
+    return credentials === activeCredentials && credentialGeneration === activeGeneration;
   }
 
   function replaceWithRemote(remote: RemoteEnvelope): void {
@@ -97,11 +102,12 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
     }
 
     const activeCredentials = credentials;
+    const activeGeneration = credentialGeneration;
     beginRequest(async () => {
       options.setStatus({ kind: "checking" });
       try {
         const remote = await getRemoteEnvelope(activeCredentials);
-        if (credentials !== activeCredentials) {
+        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
           return;
         }
         const local = options.getLocalSnapshot();
@@ -111,7 +117,9 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
         }
         options.setStatus({ kind: "synced", at: remote.updatedAt });
       } catch (error) {
-        options.setStatus({ kind: "error", message: errorMessage(error) });
+        if (areCredentialsCurrent(activeCredentials, activeGeneration)) {
+          options.setStatus({ kind: "error", message: errorMessage(error) });
+        }
       }
     });
   }
@@ -135,11 +143,12 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
 
     const stateToSave = pendingState;
     const activeCredentials = credentials;
+    const activeGeneration = credentialGeneration;
     beginRequest(async () => {
       options.setStatus({ kind: "checking" });
       try {
         const remote = await getRemoteEnvelope(activeCredentials);
-        if (credentials !== activeCredentials) {
+        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
           return;
         }
         const local = options.getLocalSnapshot();
@@ -156,13 +165,13 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
         };
         options.setStatus({ kind: "syncing" });
         await patchRemoteEnvelope(activeCredentials, nextEnvelope);
-        if (credentials !== activeCredentials) {
+        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
           return;
         }
 
         // JSONHosting has no compare-and-swap, so this best-effort read detects a remote winner but cannot eliminate the final simultaneous-PATCH race.
         const storedEnvelope = await getRemoteEnvelope(activeCredentials);
-        if (credentials !== activeCredentials) {
+        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
           return;
         }
         if (isRemoteNewer(storedEnvelope, nextEnvelope.revision, nextEnvelope.updatedAt)) {
@@ -175,7 +184,9 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
         options.confirmLocalSave(nextEnvelope);
         options.setStatus({ kind: "synced", at: nextEnvelope.updatedAt });
       } catch (error) {
-        options.setStatus({ kind: "error", message: errorMessage(error) });
+        if (areCredentialsCurrent(activeCredentials, activeGeneration)) {
+          options.setStatus({ kind: "error", message: errorMessage(error) });
+        }
       }
     });
   }
@@ -199,6 +210,7 @@ export function createJsonHostingSyncController(options: JsonHostingSyncOptions)
   }
 
   function setCredentials(nextCredentials: JsonHostingCredentials | undefined): void {
+    credentialGeneration += 1;
     credentials = nextCredentials;
     pendingState = undefined;
     clearDebounce();

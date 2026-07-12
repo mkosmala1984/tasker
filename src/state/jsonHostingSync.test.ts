@@ -174,6 +174,26 @@ describe("jsonHostingSync", () => {
     expect(patchFailure.setStatus).toHaveBeenLastCalledWith({ kind: "error", message: "PATCH failed" });
   });
 
+  it.each([
+    ["disconnected", undefined],
+    ["reconfigured", { documentId: "document-2", editKey: "second-edit-key" }]
+  ] as const)("does not report a stale GET failure after credentials are %s", async (_change, nextCredentials) => {
+    const pendingGet = deferred<RemoteEnvelope>();
+    const { controller, getRemoteEnvelope, setStatus } = createController();
+    getRemoteEnvelope.mockReturnValue(pendingGet.promise);
+
+    controller.checkForRemoteUpdate();
+    controller.setCredentials(nextCredentials);
+    pendingGet.reject(new Error("GET failed"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(setStatus).not.toHaveBeenCalledWith({ kind: "error", message: "GET failed" });
+    if (nextCredentials === undefined) {
+      expect(setStatus).toHaveBeenLastCalledWith({ kind: "disconnected" });
+    }
+  });
+
   it("clears a pending save when credentials are removed", async () => {
     vi.useFakeTimers();
     const { controller, getRemoteEnvelope, setStatus } = createController();
