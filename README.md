@@ -2,6 +2,12 @@
 
 Tasker is a local-first React app for recurring tasks. It stores data in the browser under the versioned `localStorage` key `tasker:v1`; it has no backend or login.
 
+## GitHub Pages
+
+Tasker deploys to [mkosmala1984.github.io/tasker](https://mkosmala1984.github.io/tasker/) through GitHub Pages. GitHub Actions runs tests and a Pages-targeted production build for pull requests to `main`, then deploys the built app after changes are pushed to `main`.
+
+Before the first deployment, configure the repository in **Settings → Pages** with **Source: GitHub Actions**.
+
 ## Tigris synchronization
 
 Tigris is the primary optional synchronization provider. Create a dedicated, private bucket for Tasker with only the minimum permissions needed to read and write its task object; do not make the object public. Browser access comes from the bucket CORS policy.
@@ -49,4 +55,5 @@ npm run dev
 ```bash
 npm run test:run
 npm run build
+npm run build:pages
 ```
