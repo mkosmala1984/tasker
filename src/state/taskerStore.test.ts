@@ -98,7 +98,12 @@ describe("taskerStore configuration and import actions", () => {
       credentials,
       expect.objectContaining({ version: 1, revision: 0, state: localState })
     );
+    const createdEnvelope = tigrisStorageMocks.putTigrisEnvelope.mock.calls[0][1] as RemoteEnvelope;
     expect(useTaskerStore.getState()).toMatchObject({ syncProvider: "tigris", tigrisCredentials: credentials });
+    expect(useTaskerStore.getState()).toMatchObject({
+      observedRemoteRevision: createdEnvelope.revision,
+      observedRemoteUpdatedAt: createdEnvelope.updatedAt
+    });
     expect(localStorage.getItem("tasker:jsonhosting:v1")).toContain("previous-document");
     expect(tigrisSyncMocks.setCredentials).toHaveBeenCalledWith(credentials);
     expect(tigrisSyncMocks.start).toHaveBeenCalledOnce();
@@ -123,6 +128,22 @@ describe("taskerStore configuration and import actions", () => {
     });
   });
 
+  it("resets observed metadata before checking an existing Tigris object", async () => {
+    const credentials: TigrisCredentials = {
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    };
+    useTaskerStore.setState({ observedRemoteRevision: 9, observedRemoteUpdatedAt: "2026-07-12T09:00:00.000Z" });
+    tigrisStorageMocks.getTigrisEnvelope.mockResolvedValue({
+      version: 1, revision: 4, updatedAt: "2026-07-12T10:00:00.000Z", state: useTaskerStore.getState().state
+    });
+
+    await useTaskerStore.getState().configureTigris(credentials);
+
+    expect(useTaskerStore.getState()).toMatchObject({ observedRemoteRevision: 0, observedRemoteUpdatedAt: "" });
+    expect(tigrisSyncMocks.start).toHaveBeenCalledOnce();
+    expect(tigrisSyncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
+  });
+
   it("stops Tigris and resets remote metadata when JSONHosting becomes selected", async () => {
     const credentials: TigrisCredentials = {
       bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
@@ -137,6 +158,7 @@ describe("taskerStore configuration and import actions", () => {
     useTaskerStore.getState().configureJsonHosting({ documentId: "document", editKey: "key" });
 
     expect(tigrisSyncMocks.stop).toHaveBeenCalledOnce();
+    expect(tigrisSyncMocks.setCredentials).toHaveBeenLastCalledWith(undefined);
     expect(useTaskerStore.getState()).toMatchObject({
       syncProvider: "jsonhosting", observedRemoteRevision: 0, observedRemoteUpdatedAt: ""
     });
@@ -387,6 +409,34 @@ describe("taskerStore configuration and import actions", () => {
 
     expect(useTaskerStore.getState().state.categories).toEqual([{ id: "cat-work", name: "Praca", color: "#228be6" }]);
     expect(localStorage.getItem(STORAGE_KEY)).toContain("Praca");
+  });
+
+  it("does not apply a late Tigris response after switching to JSONHosting", async () => {
+    vi.doUnmock("./remoteSync");
+    vi.resetModules();
+    localStorage.clear();
+    const { resetTaskerStore: resetRealStore, useTaskerStore: useRealStore } = await import("./taskerStore");
+    resetRealStore();
+    const initialState = useRealStore.getState().state;
+    let resolveLateRemote!: (envelope: RemoteEnvelope) => void;
+    tigrisStorageMocks.getTigrisEnvelope
+      .mockResolvedValueOnce({ version: 1, revision: 1, updatedAt: "2026-07-12T10:00:00.000Z", state: initialState })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveLateRemote = resolve; }));
+
+    await useRealStore.getState().configureTigris({
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    });
+    useRealStore.getState().configureJsonHosting({ documentId: "document", editKey: "key" });
+    resolveLateRemote({
+      version: 1,
+      revision: 2,
+      updatedAt: "2026-07-12T11:00:00.000Z",
+      state: { ...initialState, categories: [{ id: "late", name: "Late", color: "#228be6" }] }
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(useRealStore.getState().state).toEqual(initialState);
   });
 });
 

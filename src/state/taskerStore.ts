@@ -223,6 +223,7 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   configureJsonHosting: (credentials) => {
     if (get().syncProvider === "tigris") {
       tigrisSyncController.stop();
+      tigrisSyncController.setCredentials(undefined);
     }
     saveJsonHostingCredentials(credentials);
     syncController.setCredentials(credentials);
@@ -239,6 +240,7 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   configureTigris: async (credentials) => {
     try {
       let initialEnvelope;
+      let createdInitialObject = false;
       try {
         initialEnvelope = await getTigrisEnvelope(credentials);
       } catch (error) {
@@ -247,10 +249,12 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
         }
         initialEnvelope = { version: 1 as const, revision: 0, updatedAt: new Date().toISOString(), state: get().state };
         await putTigrisEnvelope(credentials, initialEnvelope);
+        createdInitialObject = true;
       }
 
       if (get().syncProvider === "jsonhosting") {
         syncController.stop();
+        syncController.setCredentials(undefined);
       }
       saveTigrisCredentials(credentials);
       tigrisSyncController.setCredentials(credentials);
@@ -258,8 +262,8 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
         tigrisCredentials: credentials,
         tigrisStatus: { kind: "disconnected" },
         syncProvider: "tigris",
-        observedRemoteRevision: initialEnvelope.revision,
-        observedRemoteUpdatedAt: initialEnvelope.updatedAt
+        observedRemoteRevision: createdInitialObject ? initialEnvelope.revision : 0,
+        observedRemoteUpdatedAt: createdInitialObject ? initialEnvelope.updatedAt : ""
       });
       tigrisSyncController.start();
       tigrisSyncController.checkForRemoteUpdate();
@@ -281,6 +285,7 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
       syncController.stop();
       if (get().syncProvider === "tigris") {
         tigrisSyncController.stop();
+        tigrisSyncController.setCredentials(undefined);
       }
       saveJsonHostingCredentials(credentials);
       set({
