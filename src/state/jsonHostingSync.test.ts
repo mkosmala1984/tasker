@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../domain/types";
-import type { JsonHostingCredentials, RemoteEnvelope } from "../storage/jsonHostingStorage";
+import type { JsonHostingCredentials } from "../storage/jsonHostingStorage";
 import { createEmptyState } from "../storage/taskerStorage";
 import {
-  createJsonHostingSyncController,
+  createRemoteSyncController,
   isRemoteNewer,
-  type JsonHostingSyncStatus
-} from "./jsonHostingSync";
+  type RemoteEnvelope,
+  type RemoteSyncStatus
+} from "./remoteSync";
 
 const credentials: JsonHostingCredentials = { documentId: "document-1", editKey: "edit-key" };
 const baseState = createEmptyState();
@@ -33,15 +34,14 @@ function createController(snapshot = { observedRevision: 3, updatedAt: "2026-07-
   const patchRemoteEnvelope = vi.fn<(credentials: JsonHostingCredentials, remote: RemoteEnvelope) => Promise<void>>();
   const replaceLocal = vi.fn();
   const confirmLocalSave = vi.fn();
-  const setStatus = vi.fn<(status: JsonHostingSyncStatus) => void>();
-  const controller = createJsonHostingSyncController({
+  const setStatus = vi.fn<(status: RemoteSyncStatus) => void>();
+  const controller = createRemoteSyncController({
     credentials,
+    storage: { getRemoteEnvelope, putRemoteEnvelope: patchRemoteEnvelope },
     getLocalSnapshot: () => ({ state: baseState, ...snapshot }),
     replaceLocal,
     confirmLocalSave,
-    setStatus,
-    getRemoteEnvelope,
-    patchRemoteEnvelope
+    setStatus
   });
 
   return { controller, getRemoteEnvelope, patchRemoteEnvelope, replaceLocal, confirmLocalSave, setStatus };
@@ -53,7 +53,7 @@ describe("jsonHostingSync", () => {
     vi.restoreAllMocks();
   });
 
-  it("coalesces mutations into one GET-before-PATCH after 750 ms", async () => {
+  it("coalesces mutations into one GET-before-PATCH after 1,000 ms", async () => {
     vi.useFakeTimers();
     const { controller, getRemoteEnvelope, patchRemoteEnvelope } = createController();
     getRemoteEnvelope.mockResolvedValue(envelope(3));
@@ -61,7 +61,7 @@ describe("jsonHostingSync", () => {
 
     controller.scheduleSave(changedState);
     controller.scheduleSave(laterChangedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(getRemoteEnvelope).toHaveBeenCalledTimes(2);
     expect(patchRemoteEnvelope).toHaveBeenCalledWith(credentials, expect.objectContaining({ revision: 4, state: laterChangedState }));
@@ -73,7 +73,7 @@ describe("jsonHostingSync", () => {
     getRemoteEnvelope.mockResolvedValue(envelope(4, "2026-07-12T10:02:00.000Z", remoteState));
 
     controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(replaceLocal).toHaveBeenCalledWith(expect.objectContaining({ revision: 4, state: remoteState }));
     expect(patchRemoteEnvelope).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe("jsonHostingSync", () => {
     patchRemoteEnvelope.mockResolvedValue();
 
     controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(getRemoteEnvelope).toHaveBeenCalledTimes(2);
     expect(replaceLocal).toHaveBeenCalledWith(remoteWinner);
@@ -106,14 +106,13 @@ describe("jsonHostingSync", () => {
       observed.revision = saved.revision;
       observed.updatedAt = saved.updatedAt;
     });
-    const controller = createJsonHostingSyncController({
+    const controller = createRemoteSyncController({
       credentials,
+      storage: { getRemoteEnvelope, putRemoteEnvelope: patchRemoteEnvelope },
       getLocalSnapshot: () => ({ state: baseState, observedRevision: observed.revision, updatedAt: observed.updatedAt }),
       replaceLocal,
       confirmLocalSave,
-      setStatus: vi.fn(),
-      getRemoteEnvelope,
-      patchRemoteEnvelope
+      setStatus: vi.fn()
     });
     const firstWriteAt = "2026-07-12T10:01:00.000Z";
     const secondWriteAt = "2026-07-12T10:02:00.000Z";
@@ -125,10 +124,10 @@ describe("jsonHostingSync", () => {
     patchRemoteEnvelope.mockResolvedValue();
 
     controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
     vi.setSystemTime(new Date(secondWriteAt));
     controller.scheduleSave(laterChangedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(confirmLocalSave).toHaveBeenCalledTimes(2);
     expect(patchRemoteEnvelope).toHaveBeenNthCalledWith(1, credentials, expect.objectContaining({ revision: 4, state: changedState }));
@@ -161,7 +160,7 @@ describe("jsonHostingSync", () => {
     const getFailure = createController();
     getFailure.getRemoteEnvelope.mockRejectedValue(new Error("GET failed"));
     getFailure.controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
     expect(getFailure.replaceLocal).not.toHaveBeenCalled();
     expect(getFailure.setStatus).toHaveBeenLastCalledWith({ kind: "error", message: "GET failed" });
 
@@ -169,7 +168,7 @@ describe("jsonHostingSync", () => {
     patchFailure.getRemoteEnvelope.mockResolvedValue(envelope(3));
     patchFailure.patchRemoteEnvelope.mockRejectedValue(new Error("PATCH failed"));
     patchFailure.controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
     expect(patchFailure.replaceLocal).not.toHaveBeenCalled();
     expect(patchFailure.setStatus).toHaveBeenLastCalledWith({ kind: "error", message: "PATCH failed" });
   });
@@ -200,7 +199,7 @@ describe("jsonHostingSync", () => {
 
     controller.scheduleSave(changedState);
     controller.setCredentials(undefined);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(getRemoteEnvelope).not.toHaveBeenCalled();
     expect(setStatus).toHaveBeenLastCalledWith({ kind: "disconnected" });
@@ -214,7 +213,7 @@ describe("jsonHostingSync", () => {
 
     controller.start();
     controller.scheduleSave(changedState);
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
     await vi.advanceTimersByTimeAsync(60_000);
 
     expect(getRemoteEnvelope).toHaveBeenCalledTimes(1);
