@@ -27,14 +27,29 @@ import {
   saveJsonHostingCredentials,
   type JsonHostingCredentials
 } from "../storage/jsonHostingStorage";
+import {
+  clearTigrisCredentials,
+  getTigrisEnvelope,
+  loadTigrisCredentials,
+  putTigrisEnvelope,
+  saveTigrisCredentials,
+  TigrisNotFoundError,
+  type TigrisCredentials
+} from "../storage/tigrisStorage";
 import { loadState, saveState } from "../storage/taskerStorage";
 import {
   createJsonHostingSyncController,
   type JsonHostingSyncController,
   type JsonHostingSyncStatus
 } from "./jsonHostingSync";
+import {
+  createRemoteSyncController,
+  type RemoteSyncController,
+  type RemoteSyncStatus
+} from "./remoteSync";
 
 export const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
+export type SyncProvider = "tigris" | "jsonhosting";
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -48,6 +63,9 @@ export type TaskerStore = {
   storageError?: string;
   jsonHostingCredentials?: JsonHostingCredentials;
   jsonHostingStatus: JsonHostingSyncStatus;
+  tigrisCredentials?: TigrisCredentials;
+  tigrisStatus: RemoteSyncStatus;
+  syncProvider?: SyncProvider;
   observedRemoteRevision: number;
   observedRemoteUpdatedAt: string;
   filters: TodayFilters;
@@ -84,8 +102,12 @@ export type TaskerStore = {
   postponeTaskToDate: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
   postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
   configureJsonHosting: (credentials: JsonHostingCredentials) => void;
+  configureTigris: (credentials: TigrisCredentials) => Promise<void>;
   createJsonHostingDocument: () => Promise<void>;
   disconnectJsonHosting: () => void;
+  disconnectTigris: () => void;
+  startSync: () => void;
+  stopSync: () => void;
   startJsonHostingSync: () => void;
   stopJsonHostingSync: () => void;
   reset: () => void;
@@ -94,11 +116,19 @@ export type TaskerStore = {
 function loadInitialStoreState() {
   const initial = loadState();
   const today = getTodayString();
+  const jsonHostingCredentials = loadJsonHostingCredentials();
+  const tigrisCredentials = loadTigrisCredentials();
+  const syncProvider: SyncProvider | undefined = tigrisCredentials === undefined
+    ? (jsonHostingCredentials === undefined ? undefined : "jsonhosting")
+    : "tigris";
   return {
     state: initial.state,
     storageError: initial.error,
-    jsonHostingCredentials: loadJsonHostingCredentials(),
+    jsonHostingCredentials,
     jsonHostingStatus: { kind: "disconnected" } as JsonHostingSyncStatus,
+    tigrisCredentials,
+    tigrisStatus: { kind: "disconnected" } as RemoteSyncStatus,
+    syncProvider,
     observedRemoteRevision: 0,
     observedRemoteUpdatedAt: "",
     filters: emptyFilters,
@@ -112,8 +142,11 @@ function loadInitialStoreState() {
 
 function persist(nextState: AppState): Pick<TaskerStore, "state"> {
   saveState(nextState);
-  if (useTaskerStore.getState().jsonHostingCredentials !== undefined) {
+  const { syncProvider } = useTaskerStore.getState();
+  if (syncProvider === "jsonhosting") {
     syncController.scheduleSave(nextState);
+  } else if (syncProvider === "tigris") {
+    tigrisSyncController.scheduleSave(nextState);
   }
   return { state: nextState };
 }
@@ -188,11 +221,51 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
     set(persist(postponeTask(get().state, taskId, scheduledDate, addDays(today, 1), now.toISOString())));
   },
   configureJsonHosting: (credentials) => {
+    if (get().syncProvider === "tigris") {
+      tigrisSyncController.stop();
+    }
     saveJsonHostingCredentials(credentials);
     syncController.setCredentials(credentials);
-    set({ jsonHostingCredentials: credentials, jsonHostingStatus: { kind: "disconnected" } });
+    set({
+      jsonHostingCredentials: credentials,
+      jsonHostingStatus: { kind: "disconnected" },
+      syncProvider: "jsonhosting",
+      observedRemoteRevision: 0,
+      observedRemoteUpdatedAt: ""
+    });
     syncController.start();
     syncController.checkForRemoteUpdate();
+  },
+  configureTigris: async (credentials) => {
+    try {
+      let initialEnvelope;
+      try {
+        initialEnvelope = await getTigrisEnvelope(credentials);
+      } catch (error) {
+        if (!(error instanceof TigrisNotFoundError)) {
+          throw error;
+        }
+        initialEnvelope = { version: 1 as const, revision: 0, updatedAt: new Date().toISOString(), state: get().state };
+        await putTigrisEnvelope(credentials, initialEnvelope);
+      }
+
+      if (get().syncProvider === "jsonhosting") {
+        syncController.stop();
+      }
+      saveTigrisCredentials(credentials);
+      tigrisSyncController.setCredentials(credentials);
+      set({
+        tigrisCredentials: credentials,
+        tigrisStatus: { kind: "disconnected" },
+        syncProvider: "tigris",
+        observedRemoteRevision: initialEnvelope.revision,
+        observedRemoteUpdatedAt: initialEnvelope.updatedAt
+      });
+      tigrisSyncController.start();
+      tigrisSyncController.checkForRemoteUpdate();
+    } catch (error) {
+      set({ tigrisStatus: { kind: "error", message: error instanceof Error ? error.message : "Nie mozna polaczyc z Tigris." } });
+    }
   },
   createJsonHostingDocument: async () => {
     const state = get().state;
@@ -206,10 +279,14 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
       const { credentials, envelope } = await createJsonHostingDocument(state, updatedAt);
       activationStarted = true;
       syncController.stop();
+      if (get().syncProvider === "tigris") {
+        tigrisSyncController.stop();
+      }
       saveJsonHostingCredentials(credentials);
       set({
         jsonHostingCredentials: credentials,
         jsonHostingStatus: { kind: "disconnected" },
+        syncProvider: "jsonhosting",
         observedRemoteRevision: envelope.revision,
         observedRemoteUpdatedAt: envelope.updatedAt
       });
@@ -269,9 +346,31 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   },
   disconnectJsonHosting: () => {
     clearJsonHostingCredentials();
-    syncController.stop();
     syncController.setCredentials(undefined);
+    if (get().syncProvider === "jsonhosting") {
+      syncController.stop();
+      set({ syncProvider: undefined, observedRemoteRevision: 0, observedRemoteUpdatedAt: "" });
+    }
     set({ jsonHostingCredentials: undefined, jsonHostingStatus: { kind: "disconnected" } });
+  },
+  disconnectTigris: () => {
+    clearTigrisCredentials();
+    tigrisSyncController.setCredentials(undefined);
+    if (get().syncProvider === "tigris") {
+      tigrisSyncController.stop();
+      set({ syncProvider: undefined, observedRemoteRevision: 0, observedRemoteUpdatedAt: "" });
+    }
+    set({ tigrisCredentials: undefined, tigrisStatus: { kind: "disconnected" } });
+  },
+  startSync: () => {
+    const provider = get().syncProvider;
+    const controller = provider === "tigris" ? tigrisSyncController : provider === "jsonhosting" ? syncController : undefined;
+    controller?.start();
+    controller?.checkForRemoteUpdate();
+  },
+  stopSync: () => {
+    const provider = get().syncProvider;
+    (provider === "tigris" ? tigrisSyncController : provider === "jsonhosting" ? syncController : undefined)?.stop();
   },
   startJsonHostingSync: () => {
     syncController.start();
@@ -281,6 +380,7 @@ export const useTaskerStore = create<TaskerStore>((set, get) => ({
   reset: () => {
     const initial = loadInitialStoreState();
     syncController.setCredentials(initial.jsonHostingCredentials);
+    tigrisSyncController.setCredentials(initial.tigrisCredentials);
     set(initial);
   }
 }));
@@ -307,9 +407,35 @@ const syncController: JsonHostingSyncController = createJsonHostingSyncControlle
   setStatus: (jsonHostingStatus) => useTaskerStore.setState({ jsonHostingStatus })
 });
 
-if (useTaskerStore.getState().jsonHostingCredentials !== undefined) {
+const tigrisSyncController: RemoteSyncController<TigrisCredentials> = createRemoteSyncController({
+  credentials: useTaskerStore.getState().tigrisCredentials,
+  storage: { getRemoteEnvelope: getTigrisEnvelope, putRemoteEnvelope: putTigrisEnvelope },
+  getLocalSnapshot: () => {
+    const { state, observedRemoteRevision, observedRemoteUpdatedAt } = useTaskerStore.getState();
+    return { state, observedRevision: observedRemoteRevision, updatedAt: observedRemoteUpdatedAt };
+  },
+  replaceLocal: (envelope) => {
+    saveState(envelope.state);
+    useTaskerStore.setState({
+      state: envelope.state,
+      observedRemoteRevision: envelope.revision,
+      observedRemoteUpdatedAt: envelope.updatedAt
+    });
+  },
+  confirmLocalSave: (envelope) =>
+    useTaskerStore.setState({
+      observedRemoteRevision: envelope.revision,
+      observedRemoteUpdatedAt: envelope.updatedAt
+    }),
+  setStatus: (tigrisStatus) => useTaskerStore.setState({ tigrisStatus })
+});
+
+if (useTaskerStore.getState().syncProvider === "jsonhosting") {
   syncController.start();
   syncController.checkForRemoteUpdate();
+} else if (useTaskerStore.getState().syncProvider === "tigris") {
+  tigrisSyncController.start();
+  tigrisSyncController.checkForRemoteUpdate();
 }
 
 export function resetTaskerStore(): void {

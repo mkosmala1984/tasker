@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RemoteEnvelope } from "../storage/jsonHostingStorage";
+import { TigrisNotFoundError, type TigrisCredentials } from "../storage/tigrisStorage";
 import { STORAGE_KEY } from "../storage/taskerStorage";
 import { createExportPayload } from "../storage/taskerBackup";
 
@@ -14,10 +15,35 @@ const syncMocks = vi.hoisted(() => ({
 }));
 
 const creationMocks = vi.hoisted(() => ({ createJsonHostingDocument: vi.fn() }));
+const tigrisStorageMocks = vi.hoisted(() => ({ getTigrisEnvelope: vi.fn(), putTigrisEnvelope: vi.fn() }));
+const tigrisSyncMocks = vi.hoisted(() => ({
+  scheduleSave: vi.fn(),
+  start: vi.fn(),
+  stop: vi.fn(),
+  setCredentials: vi.fn(),
+  checkForRemoteUpdate: vi.fn()
+}));
 
 vi.mock("../storage/jsonHostingStorage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../storage/jsonHostingStorage")>()),
   createJsonHostingDocument: creationMocks.createJsonHostingDocument
+}));
+
+vi.mock("../storage/tigrisStorage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../storage/tigrisStorage")>()),
+  getTigrisEnvelope: tigrisStorageMocks.getTigrisEnvelope,
+  putTigrisEnvelope: tigrisStorageMocks.putTigrisEnvelope
+}));
+
+vi.mock("./remoteSync", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./remoteSync")>()),
+  createRemoteSyncController: () => ({
+    start: tigrisSyncMocks.start,
+    stop: tigrisSyncMocks.stop,
+    setCredentials: tigrisSyncMocks.setCredentials,
+    scheduleSave: tigrisSyncMocks.scheduleSave,
+    checkForRemoteUpdate: tigrisSyncMocks.checkForRemoteUpdate
+  })
 }));
 
 vi.mock("./jsonHostingSync", () => ({
@@ -48,7 +74,88 @@ describe("taskerStore configuration and import actions", () => {
     syncMocks.setCredentials.mockReset();
     syncMocks.checkForRemoteUpdate.mockReset();
     creationMocks.createJsonHostingDocument.mockReset();
+    tigrisStorageMocks.getTigrisEnvelope.mockReset();
+    tigrisStorageMocks.putTigrisEnvelope.mockReset();
+    tigrisSyncMocks.scheduleSave.mockReset();
+    tigrisSyncMocks.start.mockReset();
+    tigrisSyncMocks.stop.mockReset();
+    tigrisSyncMocks.setCredentials.mockReset();
+    tigrisSyncMocks.checkForRemoteUpdate.mockReset();
     resetTaskerStore();
+  });
+
+  it("initializes a missing Tigris object with the local state and selects Tigris", async () => {
+    const credentials: TigrisCredentials = {
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    };
+    useTaskerStore.getState().configureJsonHosting({ documentId: "previous-document", editKey: "previous-key" });
+    const localState = useTaskerStore.getState().state;
+    tigrisStorageMocks.getTigrisEnvelope.mockRejectedValue(new TigrisNotFoundError());
+
+    await useTaskerStore.getState().configureTigris(credentials);
+
+    expect(tigrisStorageMocks.putTigrisEnvelope).toHaveBeenCalledWith(
+      credentials,
+      expect.objectContaining({ version: 1, revision: 0, state: localState })
+    );
+    expect(useTaskerStore.getState()).toMatchObject({ syncProvider: "tigris", tigrisCredentials: credentials });
+    expect(localStorage.getItem("tasker:jsonhosting:v1")).toContain("previous-document");
+    expect(tigrisSyncMocks.setCredentials).toHaveBeenCalledWith(credentials);
+    expect(tigrisSyncMocks.start).toHaveBeenCalledOnce();
+    expect(tigrisSyncMocks.checkForRemoteUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the active provider and local state when Tigris setup fails", async () => {
+    const jsonCredentials = { documentId: "previous-document", editKey: "previous-key" };
+    useTaskerStore.getState().configureJsonHosting(jsonCredentials);
+    const localState = useTaskerStore.getState().state;
+    tigrisStorageMocks.getTigrisEnvelope.mockRejectedValue(new Error("Tigris unavailable"));
+
+    await useTaskerStore.getState().configureTigris({
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    });
+
+    expect(useTaskerStore.getState()).toMatchObject({
+      syncProvider: "jsonhosting",
+      jsonHostingCredentials: jsonCredentials,
+      state: localState,
+      tigrisStatus: { kind: "error", message: "Tigris unavailable" }
+    });
+  });
+
+  it("stops Tigris and resets remote metadata when JSONHosting becomes selected", async () => {
+    const credentials: TigrisCredentials = {
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    };
+    tigrisStorageMocks.getTigrisEnvelope.mockResolvedValue({
+      version: 1, revision: 4, updatedAt: "2026-07-12T10:00:00.000Z", state: useTaskerStore.getState().state
+    });
+    await useTaskerStore.getState().configureTigris(credentials);
+    useTaskerStore.setState({ observedRemoteRevision: 4, observedRemoteUpdatedAt: "2026-07-12T10:00:00.000Z" });
+    tigrisSyncMocks.stop.mockClear();
+
+    useTaskerStore.getState().configureJsonHosting({ documentId: "document", editKey: "key" });
+
+    expect(tigrisSyncMocks.stop).toHaveBeenCalledOnce();
+    expect(useTaskerStore.getState()).toMatchObject({
+      syncProvider: "jsonhosting", observedRemoteRevision: 0, observedRemoteUpdatedAt: ""
+    });
+  });
+
+  it("routes mutations only through the selected provider", async () => {
+    tigrisStorageMocks.getTigrisEnvelope.mockResolvedValue({
+      version: 1, revision: 0, updatedAt: "2026-07-12T10:00:00.000Z", state: useTaskerStore.getState().state
+    });
+    await useTaskerStore.getState().configureTigris({
+      bucket: "tasker", objectKey: "state.json", accessKeyId: "access", secretAccessKey: "secret"
+    });
+    syncMocks.scheduleSave.mockClear();
+    tigrisSyncMocks.scheduleSave.mockClear();
+
+    useTaskerStore.getState().addCategory({ name: "Dom", color: "#40c057" });
+
+    expect(tigrisSyncMocks.scheduleSave).toHaveBeenCalledOnce();
+    expect(syncMocks.scheduleSave).not.toHaveBeenCalled();
   });
 
   it("persists locally before it schedules remote synchronization", () => {
@@ -325,6 +432,7 @@ describe("taskerStore JSONHosting controller integration", () => {
   it("patches consecutive mutations at successive remote revisions", async () => {
     vi.useFakeTimers();
     vi.doUnmock("./jsonHostingSync");
+    vi.doUnmock("./remoteSync");
     vi.resetModules();
     localStorage.clear();
     const { resetTaskerStore: resetRealStore, useTaskerStore: useRealStore } = await import("./taskerStore");
@@ -351,9 +459,9 @@ describe("taskerStore JSONHosting controller integration", () => {
     useRealStore.getState().configureJsonHosting({ documentId: "abc123", editKey: "secret" });
     await vi.advanceTimersByTimeAsync(0);
     useRealStore.getState().addCategory({ name: "Dom", color: "#40c057" });
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
     useRealStore.getState().addTaskType({ name: "Termin" });
-    await vi.advanceTimersByTimeAsync(750);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(patchedEnvelopes).toHaveLength(2);
     expect(patchedEnvelopes.map((envelope) => envelope.revision)).toEqual([1, 2]);
