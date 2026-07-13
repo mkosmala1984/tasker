@@ -10,6 +10,7 @@ import {
   patchRemoteEnvelope,
   saveJsonHostingCredentials
 } from "./jsonHostingStorage";
+import { parseRemoteEnvelope } from "../state/remoteSync";
 
 describe("jsonHostingStorage", () => {
   afterEach(() => {
@@ -66,6 +67,18 @@ describe("jsonHostingStorage", () => {
 
     await expect(getRemoteEnvelope({ documentId: "abc123", editKey: "secret" }))
       .rejects.toMatchObject({ message: "Nie mozna odczytac danych z JSONHosting." });
+  });
+
+  it("shares remote-envelope validation with the generic sync controller", () => {
+    const envelope = {
+      version: 1 as const,
+      revision: 4,
+      updatedAt: "2026-07-12T10:00:00.000Z",
+      state: createEmptyState()
+    };
+
+    expect(parseRemoteEnvelope(envelope)).toEqual(envelope);
+    expect(() => parseRemoteEnvelope({ ...envelope, revision: -1 })).toThrow();
   });
 
   it("uses a JSONHosting error for unsuccessful reads", async () => {

@@ -10,6 +10,54 @@ export type RemoteEnvelope = {
   state: AppState;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isArrayProperty(value: Record<string, unknown>, key: string): boolean {
+  return Array.isArray(value[key]);
+}
+
+function isAppState(value: unknown): value is AppState {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    isArrayProperty(value, "tasks") &&
+    isArrayProperty(value, "categories") &&
+    isArrayProperty(value, "assignees") &&
+    isArrayProperty(value, "taskTypes") &&
+    isArrayProperty(value, "priorities") &&
+    isArrayProperty(value, "completions") &&
+    isArrayProperty(value, "postponements")
+  );
+}
+
+function isParseableIsoDate(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T/.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+export function parseRemoteEnvelope(value: unknown): RemoteEnvelope {
+  if (
+    !isRecord(value) ||
+    value.version !== 1 ||
+    typeof value.revision !== "number" ||
+    !Number.isInteger(value.revision) ||
+    value.revision < 0 ||
+    !isParseableIsoDate(value.updatedAt) ||
+    !isAppState(value.state)
+  ) {
+    throw new Error("Niepoprawna koperta danych zdalnych.");
+  }
+
+  return value as RemoteEnvelope;
+}
+
 export type RemoteSyncStatus =
   | { kind: "disconnected" }
   | { kind: "checking" }

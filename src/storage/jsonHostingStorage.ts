@@ -1,17 +1,13 @@
 import type { AppState } from "../domain/types";
+import { parseRemoteEnvelope, type RemoteEnvelope } from "../state/remoteSync";
+
+export type { RemoteEnvelope } from "../state/remoteSync";
 
 export const JSON_HOSTING_CREDENTIALS_KEY = "tasker:jsonhosting:v1";
 
 export type JsonHostingCredentials = {
   documentId: string;
   editKey: string;
-};
-
-export type RemoteEnvelope = {
-  version: 1;
-  revision: number;
-  updatedAt: string;
-  state: AppState;
 };
 
 export class JsonHostingError extends Error {
@@ -25,26 +21,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isArrayProperty(value: Record<string, unknown>, key: string): boolean {
-  return Array.isArray(value[key]);
-}
-
-function isAppState(value: unknown): value is AppState {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    isArrayProperty(value, "tasks") &&
-    isArrayProperty(value, "categories") &&
-    isArrayProperty(value, "assignees") &&
-    isArrayProperty(value, "taskTypes") &&
-    isArrayProperty(value, "priorities") &&
-    isArrayProperty(value, "completions") &&
-    isArrayProperty(value, "postponements")
-  );
-}
-
 function isCredentials(value: unknown): value is JsonHostingCredentials {
   return (
     isRecord(value) &&
@@ -53,30 +29,6 @@ function isCredentials(value: unknown): value is JsonHostingCredentials {
     typeof value.editKey === "string" &&
     value.editKey.trim().length > 0
   );
-}
-
-function isParseableIsoDate(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T/.test(value) &&
-    !Number.isNaN(Date.parse(value))
-  );
-}
-
-function parseRemoteEnvelope(value: unknown): RemoteEnvelope {
-  if (
-    !isRecord(value) ||
-    value.version !== 1 ||
-    typeof value.revision !== "number" ||
-    !Number.isInteger(value.revision) ||
-    value.revision < 0 ||
-    !isParseableIsoDate(value.updatedAt) ||
-    !isAppState(value.state)
-  ) {
-    throw new JsonHostingError("Nie mozna odczytac danych z JSONHosting.");
-  }
-
-  return value as RemoteEnvelope;
 }
 
 export function loadJsonHostingCredentials(storage: Storage = window.localStorage): JsonHostingCredentials | undefined {
