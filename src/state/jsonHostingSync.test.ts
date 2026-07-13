@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../domain/types";
 import type { JsonHostingCredentials } from "../storage/jsonHostingStorage";
 import { createEmptyState } from "../storage/taskerStorage";
+import { isRemoteNewer as isJsonHostingRemoteNewer } from "./jsonHostingSync";
 import {
   createRemoteSyncController,
   isRemoteNewer,
@@ -153,6 +154,10 @@ describe("jsonHostingSync", () => {
     expect(isRemoteNewer(envelope(3, "2026-07-12T10:01:00.000Z"), 3, "2026-07-12T10:00:00.000Z")).toBe(true);
     expect(isRemoteNewer(envelope(3), 3, "2026-07-12T10:00:00.000Z")).toBe(false);
     expect(isRemoteNewer(envelope(2), 3, "2026-07-12T10:00:00.000Z")).toBe(false);
+  });
+
+  it("re-exports the legacy isRemoteNewer helper", () => {
+    expect(isJsonHostingRemoteNewer(envelope(4), 3, "2026-07-12T10:00:00.000Z")).toBe(true);
   });
 
   it("keeps local data intact and reports an error when GET or PATCH fails", async () => {

@@ -41,4 +41,26 @@ describe("remoteSync", () => {
 
     expect(storage.putRemoteEnvelope).toHaveBeenCalledWith(credentials, expect.objectContaining({ revision: 4 }));
   });
+
+  it("uses a provider-neutral message for non-Error failures", async () => {
+    vi.useFakeTimers();
+    const storage = {
+      getRemoteEnvelope: vi.fn<(activeCredentials: TestCredentials) => Promise<RemoteEnvelope>>().mockRejectedValue("failed"),
+      putRemoteEnvelope: vi.fn<(activeCredentials: TestCredentials, remote: RemoteEnvelope) => Promise<void>>()
+    };
+    const setStatus = vi.fn<(status: RemoteSyncStatus) => void>();
+    const controller = createRemoteSyncController({
+      credentials,
+      storage,
+      getLocalSnapshot: () => ({ state: baseState, observedRevision: 3, updatedAt: "2026-07-12T10:00:00.000Z" }),
+      replaceLocal: vi.fn(),
+      confirmLocalSave: vi.fn(),
+      setStatus
+    });
+
+    controller.scheduleSave(changedState);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(setStatus).toHaveBeenLastCalledWith({ kind: "error", message: "Nie mozna zsynchronizowac danych zdalnych." });
+  });
 });

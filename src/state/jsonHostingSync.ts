@@ -6,10 +6,13 @@ import {
 } from "../storage/jsonHostingStorage";
 import {
   createRemoteSyncController,
+  isRemoteNewer,
   type RemoteEnvelope,
   type RemoteSyncController,
   type RemoteSyncStatus
 } from "./remoteSync";
+
+export { isRemoteNewer };
 
 export type JsonHostingSyncStatus = RemoteSyncStatus;
 export type LocalSnapshot = {

@@ -45,7 +45,7 @@ export function isRemoteNewer(remote: RemoteEnvelope, observedRevision: number, 
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Nie mozna zsynchronizowac danych z JSONHosting.";
+  return error instanceof Error ? error.message : "Nie mozna zsynchronizowac danych zdalnych.";
 }
 
 export function createRemoteSyncController<C>(options: RemoteSyncOptions<C>): RemoteSyncController<C> {
