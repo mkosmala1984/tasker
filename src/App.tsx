@@ -63,8 +63,12 @@ export default function App({ now = new Date() }: Props) {
   const configureJsonHosting = useTaskerStore((store) => store.configureJsonHosting);
   const createJsonHostingDocument = useTaskerStore((store) => store.createJsonHostingDocument);
   const disconnectJsonHosting = useTaskerStore((store) => store.disconnectJsonHosting);
-  const startJsonHostingSync = useTaskerStore((store) => store.startJsonHostingSync);
-  const stopJsonHostingSync = useTaskerStore((store) => store.stopJsonHostingSync);
+  const tigrisCredentials = useTaskerStore((store) => store.tigrisCredentials);
+  const tigrisStatus = useTaskerStore((store) => store.tigrisStatus);
+  const configureTigris = useTaskerStore((store) => store.configureTigris);
+  const disconnectTigris = useTaskerStore((store) => store.disconnectTigris);
+  const startSync = useTaskerStore((store) => store.startSync);
+  const stopSync = useTaskerStore((store) => store.stopSync);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
   const completeTask = useTaskerStore((store) => store.completeTask);
   const postponeTask = useTaskerStore((store) => store.postponeTask);
@@ -74,9 +78,9 @@ export default function App({ now = new Date() }: Props) {
   const todayGroup = buildTodayTaskGroup(state, today);
 
   useEffect(() => {
-    startJsonHostingSync();
-    return stopJsonHostingSync;
-  }, [startJsonHostingSync, stopJsonHostingSync]);
+    startSync();
+    return stopSync;
+  }, [startSync, stopSync]);
 
   function handleCreateTask() {
     openTaskCreate();
@@ -200,6 +204,10 @@ export default function App({ now = new Date() }: Props) {
               onConfigureJsonHosting={configureJsonHosting}
               onCreateJsonHostingDocument={createJsonHostingDocument}
               onDisconnectJsonHosting={disconnectJsonHosting}
+              tigrisCredentials={tigrisCredentials}
+              tigrisStatus={tigrisStatus}
+              onConfigureTigris={configureTigris}
+              onDisconnectTigris={disconnectTigris}
             />
           </Paper>
         ) : null}

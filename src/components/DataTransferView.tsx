@@ -2,8 +2,10 @@ import { Alert, Button, Group, Input, Stack, Text, Title } from "@mantine/core";
 import { useState } from "react";
 import type { AppState } from "../domain/types";
 import type { JsonHostingCredentials } from "../storage/jsonHostingStorage";
+import type { TigrisCredentials } from "../storage/tigrisStorage";
 import { createExportPayload, serializeExportPayload, type ImportPreview } from "../storage/taskerBackup";
 import type { JsonHostingSyncStatus } from "../state/jsonHostingSync";
+import type { RemoteSyncStatus } from "../state/remoteSync";
 
 type Props = {
   state: AppState;
@@ -14,6 +16,10 @@ type Props = {
   onConfigureJsonHosting: (credentials: JsonHostingCredentials) => void;
   onCreateJsonHostingDocument: () => Promise<void>;
   onDisconnectJsonHosting: () => void;
+  tigrisCredentials?: TigrisCredentials;
+  tigrisStatus: RemoteSyncStatus;
+  onConfigureTigris: (credentials: TigrisCredentials) => Promise<void>;
+  onDisconnectTigris: () => void;
 };
 
 function getJsonHostingStatus(status: JsonHostingSyncStatus): { color: string; message: string } {
@@ -30,6 +36,23 @@ function getJsonHostingStatus(status: JsonHostingSyncStatus): { color: string; m
       return { color: "red", message: status.message };
     case "disconnected":
       return { color: "gray", message: "JSONHosting nie jest polaczony." };
+  }
+}
+
+function getTigrisStatus(status: RemoteSyncStatus): { color: string; message: string } {
+  switch (status.kind) {
+    case "checking":
+      return { color: "blue", message: "Sprawdzanie danych Tigris." };
+    case "syncing":
+      return { color: "blue", message: "Synchronizowanie danych Tigris." };
+    case "synced":
+      return { color: "green", message: "Zsynchronizowano dane z Tigris." };
+    case "remote-loaded":
+      return { color: "green", message: "Wczytano nowsze dane z Tigris." };
+    case "error":
+      return { color: "red", message: status.message };
+    case "disconnected":
+      return { color: "gray", message: "Tigris nie jest polaczony." };
   }
 }
 
@@ -54,15 +77,25 @@ export function DataTransferView({
   status,
   onConfigureJsonHosting,
   onCreateJsonHostingDocument,
-  onDisconnectJsonHosting
+  onDisconnectJsonHosting,
+  tigrisCredentials,
+  tigrisStatus,
+  onConfigureTigris,
+  onDisconnectTigris
 }: Props) {
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [documentId, setDocumentId] = useState(credentials?.documentId ?? "");
   const [editKey, setEditKey] = useState(credentials?.editKey ?? "");
   const [isCreatingJsonHostingDocument, setIsCreatingJsonHostingDocument] = useState(false);
+  const [bucket, setBucket] = useState(tigrisCredentials?.bucket ?? "");
+  const [objectKey, setObjectKey] = useState(tigrisCredentials?.objectKey ?? "tasker.json");
+  const [accessKeyId, setAccessKeyId] = useState(tigrisCredentials?.accessKeyId ?? "");
+  const [secretAccessKey, setSecretAccessKey] = useState(tigrisCredentials?.secretAccessKey ?? "");
   const jsonHostingStatus = getJsonHostingStatus(status);
+  const tigrisSyncStatus = getTigrisStatus(tigrisStatus);
   const canConfigureJsonHosting = documentId.trim().length > 0 && editKey.trim().length > 0;
+  const canConfigureTigris = [bucket, objectKey, accessKeyId, secretAccessKey].every((value) => value.trim().length > 0);
 
   function exportData() {
     const payload = createExportPayload(state, new Date().toISOString());
@@ -106,6 +139,18 @@ export function DataTransferView({
     onConfigureJsonHosting({ documentId: documentId.trim(), editKey: editKey.trim() });
   }
 
+  function configureTigris() {
+    if (!canConfigureTigris) {
+      return;
+    }
+    void onConfigureTigris({
+      bucket: bucket.trim(),
+      objectKey: objectKey.trim(),
+      accessKeyId: accessKeyId.trim(),
+      secretAccessKey: secretAccessKey.trim()
+    });
+  }
+
   async function createJsonHostingDocument() {
     setIsCreatingJsonHostingDocument(true);
     try {
@@ -118,6 +163,34 @@ export function DataTransferView({
   return (
     <Stack gap="md">
       <Title order={2}>Dane</Title>
+      <Alert color="yellow" title="Uwaga: dane dostepu Tigris">
+        Tajny klucz dostepu jest przechowywany w tej przegladarce. Uzyj dedykowanego bucketu z minimalnymi uprawnieniami.
+      </Alert>
+      <Alert color={tigrisSyncStatus.color} title="Synchronizacja Tigris">
+        {tigrisSyncStatus.message}
+      </Alert>
+      <Input.Wrapper label="Bucket Tigris">
+        <Input value={bucket} onChange={(event) => setBucket(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Input.Wrapper label="Klucz obiektu Tigris">
+        <Input value={objectKey} onChange={(event) => setObjectKey(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Input.Wrapper label="ID klucza dostepu Tigris">
+        <Input value={accessKeyId} onChange={(event) => setAccessKeyId(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Input.Wrapper label="Tajny klucz dostepu Tigris">
+        <Input type="password" value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.currentTarget.value)} />
+      </Input.Wrapper>
+      <Group>
+        <Button type="button" onClick={configureTigris} disabled={!canConfigureTigris}>
+          Polacz z Tigris
+        </Button>
+        {tigrisCredentials ? (
+          <Button type="button" color="red" variant="light" onClick={onDisconnectTigris}>
+            Rozlacz Tigris
+          </Button>
+        ) : null}
+      </Group>
       <Alert color="yellow" title="Uwaga: publiczne dane">
         Dokumenty JSONHosting sa publicznie dostepne. Nie zapisuj w nich poufnych danych.
       </Alert>

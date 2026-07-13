@@ -175,12 +175,12 @@ describe("App", () => {
     expect(document.querySelector('[data-theme="olive-canvas"]')).toBeInTheDocument();
   });
 
-  it("starts JSONHosting synchronization on mount and stops it on unmount", () => {
-    const originalStart = useTaskerStore.getState().startJsonHostingSync;
-    const originalStop = useTaskerStore.getState().stopJsonHostingSync;
-    const startJsonHostingSync = vi.fn();
-    const stopJsonHostingSync = vi.fn();
-    useTaskerStore.setState({ startJsonHostingSync, stopJsonHostingSync });
+  it("starts active synchronization on mount and stops it on unmount", () => {
+    const originalStart = useTaskerStore.getState().startSync;
+    const originalStop = useTaskerStore.getState().stopSync;
+    const startSync = vi.fn();
+    const stopSync = vi.fn();
+    useTaskerStore.setState({ startSync, stopSync });
 
     try {
       const { unmount } = render(
@@ -189,11 +189,11 @@ describe("App", () => {
         </MantineProvider>
       );
 
-      expect(startJsonHostingSync).toHaveBeenCalledOnce();
+      expect(startSync).toHaveBeenCalledOnce();
       unmount();
-      expect(stopJsonHostingSync).toHaveBeenCalledOnce();
+      expect(stopSync).toHaveBeenCalledOnce();
     } finally {
-      useTaskerStore.setState({ startJsonHostingSync: originalStart, stopJsonHostingSync: originalStop });
+      useTaskerStore.setState({ startSync: originalStart, stopSync: originalStop });
     }
   });
 
@@ -449,6 +449,38 @@ describe("App", () => {
     } finally {
       act(() => {
         useTaskerStore.setState({ createJsonHostingDocument: originalCreate });
+      });
+    }
+  });
+
+  it("forwards Tigris configuration and disconnection from the Dane view to the store", async () => {
+    const originalConfigure = useTaskerStore.getState().configureTigris;
+    const originalDisconnect = useTaskerStore.getState().disconnectTigris;
+    const configureTigris = vi.fn().mockResolvedValue(undefined);
+    const disconnectTigris = vi.fn();
+    useTaskerStore.setState({ configureTigris, disconnectTigris, tigrisCredentials: undefined });
+
+    try {
+      renderApp();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Dane" }));
+      await user.type(screen.getByLabelText("Bucket Tigris"), "tasker");
+      await user.clear(screen.getByLabelText("Klucz obiektu Tigris"));
+      await user.type(screen.getByLabelText("Klucz obiektu Tigris"), "shared/tasker.json");
+      await user.type(screen.getByLabelText("ID klucza dostepu Tigris"), "tid_key");
+      await user.type(screen.getByLabelText("Tajny klucz dostepu Tigris"), "tsec_secret");
+      await user.click(screen.getByRole("button", { name: "Polacz z Tigris" }));
+
+      expect(configureTigris).toHaveBeenCalledWith({ bucket: "tasker", objectKey: "shared/tasker.json", accessKeyId: "tid_key", secretAccessKey: "tsec_secret" });
+
+      act(() => {
+        useTaskerStore.setState({ tigrisCredentials: { bucket: "tasker", objectKey: "shared/tasker.json", accessKeyId: "tid_key", secretAccessKey: "tsec_secret" } });
+      });
+      await user.click(screen.getByRole("button", { name: "Rozlacz Tigris" }));
+      expect(disconnectTigris).toHaveBeenCalledOnce();
+    } finally {
+      act(() => {
+        useTaskerStore.setState({ configureTigris: originalConfigure, disconnectTigris: originalDisconnect, tigrisCredentials: undefined });
       });
     }
   });
