@@ -6,6 +6,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM pierrezemb/gostatic
-COPY --from=build /app/dist /srv/http/
-CMD ["-port","8080","-https-promote", "-enable-logging"]
+FROM ghcr.io/static-web-server/static-web-server:2-alpine
+
+ENV SERVER_PORT=8080
+COPY --chown=sws:sws --from=build /app/dist /var/public
