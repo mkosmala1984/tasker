@@ -23,7 +23,8 @@ function renderPanel(schedule: TaskSchedule) {
     taskType: { id: "task-type-default", name: "Zadanie", active: true, order: 0 },
     priority: { id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" },
     scheduledDate: "2026-08-02",
-    isOverdue: false
+    isOverdue: false,
+    completionCount: 0
   };
 
   render(
