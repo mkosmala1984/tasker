@@ -205,7 +205,7 @@ describe("App", () => {
     const user = userEvent.setup();
 
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
-    expect(screen.getByText("Jeszcze nie wykonano · Wykonano: 0 razy")).toBeInTheDocument();
+    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
     expect(screen.queryByText("Kategoria")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pokaz szczegoly: Podlac rosliny" }));

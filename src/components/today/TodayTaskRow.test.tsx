@@ -56,6 +56,7 @@ describe("TodayTaskRow", () => {
   it("shows that a task has not been completed yet", () => {
     renderRow(item());
 
-    expect(screen.getByText("Jeszcze nie wykonano · Wykonano: 0 razy")).toBeInTheDocument();
+    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
+    expect(screen.queryByText(/Wykonano: 0 razy/)).not.toBeInTheDocument();
   });
 });

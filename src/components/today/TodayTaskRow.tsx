@@ -17,7 +17,7 @@ type Props = {
 export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComplete, onPostponeToDate }: Props) {
   const statusText = item.isOverdue ? item.scheduledDate : "Na dzis";
   const completionText = item.lastCompletedDate ? `Ostatnio wykonane: ${item.lastCompletedDate}` : "Jeszcze nie wykonano";
-  const completionSummary = `${completionText} · Wykonano: ${item.completionCount} razy`;
+  const completionSummary = item.completionCount > 0 ? `${completionText} · Wykonano: ${item.completionCount} razy` : completionText;
 
   return (
     <Paper className="today-task-row" component="article" withBorder>
