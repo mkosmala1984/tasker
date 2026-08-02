@@ -8,6 +8,7 @@ import { CalendarView } from "./CalendarView";
 function renderCalendar() {
   const onCreateTaskForDate = vi.fn();
   const onEditTask = vi.fn();
+  useTaskerStore.getState().setSelectedCalendarDate("2026-07-07");
   render(
     <MantineProvider>
       <CalendarView today="2026-07-07" onCreateTaskForDate={onCreateTaskForDate} onEditTask={onEditTask} />

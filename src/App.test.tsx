@@ -3,10 +3,12 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { getTodayString } from "./domain/dates";
 import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID, STORAGE_KEY } from "./storage/taskerStorage";
 import { resetTaskerStore, useTaskerStore } from "./state/taskerStore";
 
 function renderApp({ now = new Date(2026, 6, 5, 9, 0) }: { now?: Date } = {}) {
+  useTaskerStore.getState().setSelectedCalendarDate(getTodayString(now));
   render(
     <MantineProvider>
       <App now={now} />
@@ -203,7 +205,7 @@ describe("App", () => {
     const user = userEvent.setup();
 
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
-    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
+    expect(screen.getByText("Jeszcze nie wykonano · Wykonano: 0 razy")).toBeInTheDocument();
     expect(screen.queryByText("Kategoria")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pokaz szczegoly: Podlac rosliny" }));
