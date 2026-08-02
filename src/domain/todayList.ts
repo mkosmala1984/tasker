@@ -8,6 +8,10 @@ function getLatestCompletion(taskId: string, completions: Completion[]): Complet
     .sort((left, right) => compareDates(right.completedDate, left.completedDate))[0];
 }
 
+function getCompletionCount(taskId: string, completions: Completion[]): number {
+  return completions.filter((completion) => completion.taskId === taskId).length;
+}
+
 function wasCompleted(taskId: string, scheduledDate: string, completions: Completion[]): boolean {
   return completions.some((completion) => completion.taskId === taskId && completion.scheduledDate === scheduledDate);
 }
@@ -66,7 +70,8 @@ function buildTodayTaskItem(state: AppState, task: Task, today: string): TodayTa
     priority: findPriority(state.priorities, task.priorityId),
     scheduledDate,
     isOverdue: compareDates(scheduledDate, today) < 0,
-    lastCompletedDate: getLatestCompletion(task.id, state.completions)?.completedDate
+    lastCompletedDate: getLatestCompletion(task.id, state.completions)?.completedDate,
+    completionCount: getCompletionCount(task.id, state.completions)
   };
 }
 
@@ -79,7 +84,8 @@ function buildCompletedTodayItem(state: AppState, task: Task, completion: Comple
     priority: findPriority(state.priorities, task.priorityId),
     scheduledDate: completion.scheduledDate,
     isOverdue: compareDates(completion.scheduledDate, today) < 0,
-    lastCompletedDate: completion.completedDate
+    lastCompletedDate: completion.completedDate,
+    completionCount: getCompletionCount(task.id, state.completions)
   };
 }
 

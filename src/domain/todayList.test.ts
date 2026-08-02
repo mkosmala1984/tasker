@@ -122,6 +122,25 @@ describe("buildTodayList", () => {
     expect(nextCycle[0].scheduledDate).toBe("2026-07-10");
   });
 
+  it("provides the latest completion date and total completion count for an active task", () => {
+    const state: AppState = {
+      ...baseState,
+      tasks: [task({ schedule: { mode: "recurring", startDate: "2026-07-01", recurrence: { type: "weekly" } } })],
+      completions: [
+        { id: "completion-1", taskId: "task-1", scheduledDate: "2026-07-01", completedDate: "2026-07-01" },
+        { id: "completion-2", taskId: "task-1", scheduledDate: "2026-07-08", completedDate: "2026-07-04" },
+        { id: "completion-3", taskId: "other-task", scheduledDate: "2026-07-01", completedDate: "2026-07-02" }
+      ]
+    };
+
+    const group = buildTodayTaskGroup(state, "2026-07-11");
+
+    expect(group.active[0]).toMatchObject({
+      lastCompletedDate: "2026-07-04",
+      completionCount: 2
+    });
+  });
+
   it("hides a task postponed to a future arbitrary date", () => {
     const state: AppState = {
       ...baseState,

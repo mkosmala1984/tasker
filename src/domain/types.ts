@@ -91,6 +91,7 @@ export type TodayTask = {
   scheduledDate: string;
   isOverdue: boolean;
   lastCompletedDate?: string;
+  completionCount: number;
 };
 
 export type TodayTaskGroup = {
