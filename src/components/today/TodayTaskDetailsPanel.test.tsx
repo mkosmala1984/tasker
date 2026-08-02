@@ -46,4 +46,15 @@ describe("TodayTaskDetailsPanel", () => {
 
     expect(screen.getByText("Co 3 dni")).toBeInTheDocument();
   });
+
+  it.each([
+    [{ type: "daily" }, "Co 1 dzień"],
+    [{ type: "weekly" }, "Co 7 dni"],
+    [{ type: "monthly" }, "Co 30 dni"],
+    [{ type: "quarterly" }, "Co 90 dni"]
+  ] as const)("shows %s frequency as %s", (recurrence, expectedLabel) => {
+    renderPanel({ mode: "recurring", startDate: "2026-08-02", recurrence });
+
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument();
+  });
 });
