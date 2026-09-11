@@ -211,7 +211,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Pokaz szczegoly: Podlac rosliny" }));
 
     expect(screen.getByText("Kategoria")).toBeInTheDocument();
-    expect(screen.getByText("Dom")).toBeInTheDocument();
+    expect(screen.getByText("Dom", { selector: ".today-task-detail-value" })).toBeInTheDocument();
     expect(screen.getByText("Osoba")).toBeInTheDocument();
     expect(screen.getByText("Ola")).toBeInTheDocument();
   });

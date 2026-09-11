@@ -142,6 +142,7 @@ export default function App({ now = new Date() }: Props) {
                 dateLabel={formatPolishDateLabel(today)}
                 activeTasks={todayGroup.active}
                 completedToday={todayGroup.completedToday}
+                categories={state.categories}
                 onAdd={handleCreateTask}
                 onComplete={handleCompleteTask}
                 onPostponeToDate={handlePostponeTaskToDate}
