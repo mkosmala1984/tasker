@@ -46,7 +46,7 @@ export function CalendarView({ today, onCreateTaskForDate, onEditTask }: Props) 
           details={details}
           onCreateTaskForDate={onCreateTaskForDate}
           onEditTask={onEditTask}
-          onPostponeTaskToDate={postponeTaskToDate}
+          onPostponeTaskToDate={(id, from, to) => void postponeTaskToDate(id, from, to).catch(() => undefined)}
         />
       </Stack>
     </Paper>

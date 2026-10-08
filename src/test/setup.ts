@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import "fake-indexeddb/auto";
 import "../styles.css";
 
 for (const [name, value] of Object.entries({

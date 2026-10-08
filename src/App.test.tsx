@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -44,8 +44,8 @@ function seedTaskState() {
   );
 }
 
-function seedTaskFormDictionaries() {
-  seedState({
+async function seedTaskFormDictionaries() {
+  await seedState({
     tasks: [],
     categories: [{ id: "cat-home", name: "Dom", color: "#40c057" }],
     assignees: [{ id: "person-ola", name: "Ola" }],
@@ -56,8 +56,8 @@ function seedTaskFormDictionaries() {
   });
 }
 
-function seedTodayTaskState() {
-  seedState({
+async function seedTodayTaskState() {
+  await seedState({
     tasks: [
       {
         id: "task-1",
@@ -92,29 +92,34 @@ async function addDailyTask(title: string, category: string, assignee: string) {
   await user.selectOptions(within(form).getByLabelText("Kategoria"), "cat-home");
   await user.selectOptions(within(form).getByLabelText("Osoba"), "person-ola");
   await user.click(within(form).getByRole("button", { name: "Zapisz zadanie" }));
+  await waitFor(() => {
+    expect(screen.queryByRole("alert", { name: "Zapis przerwany" })?.textContent).toBeUndefined();
+    expect(screen.queryByRole("heading", { name: "Zadania" })).toBeInTheDocument();
+  });
 }
 
-function seedState(state: unknown) {
+async function seedState(state: unknown) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  resetTaskerStore();
+  await resetTaskerStore();
 }
 
 describe("App", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
-    resetTaskerStore();
+    await resetTaskerStore();
   });
 
-  it("adds a task and persists it in localStorage", async () => {
-    seedTaskFormDictionaries();
+  it("adds a task and persists it in the journal", async () => {
+    await seedTaskFormDictionaries();
     renderApp();
 
     await addDailyTask("Podlac rosliny", "Dom", "Ola");
+    expect(screen.queryByRole("alert", { name: "Zapis przerwany" })?.textContent).toBeUndefined();
 
     expect(screen.queryByRole("heading", { name: "Tasker" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Zadania" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Podlac rosliny" })).toBeInTheDocument();
-    expect(localStorage.getItem(STORAGE_KEY)).toContain("Podlac rosliny");
+    expect(JSON.stringify(useTaskerStore.getState().state)).toContain("Podlac rosliny");
   });
 
   it("opens the separate task editor from the tasks view add button", async () => {
@@ -154,7 +159,7 @@ describe("App", () => {
   });
 
   it("marks a task as complete and removes it from today", async () => {
-    seedTodayTaskState();
+    await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
@@ -164,8 +169,8 @@ describe("App", () => {
     expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
   });
 
-  it("renders the today view without filters", () => {
-    seedTodayTaskState();
+  it("renders the today view without filters", async () => {
+    await seedTodayTaskState();
     renderApp({ now: new Date("2026-07-10T09:00:00.000Z") });
 
     expect(screen.queryByText("Filtrowanie")).not.toBeInTheDocument();
@@ -200,7 +205,7 @@ describe("App", () => {
   });
 
   it("renders a compact active task row and expands inline details", async () => {
-    seedTodayTaskState();
+    await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
@@ -222,7 +227,7 @@ describe("App", () => {
   });
 
   it("postpones a task using the quick menu actions", async () => {
-    seedTodayTaskState();
+    await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
@@ -230,13 +235,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Jutro" }));
 
     expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
-    const stored = localStorage.getItem(STORAGE_KEY) ?? "";
+    const stored = JSON.stringify(useTaskerStore.getState().state);
     expect(stored).toContain('"toDate":"2026-07-06"');
     expect(stored).not.toContain("completedDate");
   });
 
   it("allows selecting a custom postpone date from the quick menu", async () => {
-    seedTodayTaskState();
+    await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
@@ -246,14 +251,14 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Zatwierdz odlozenie: Podlac rosliny" }));
 
     expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
-    const stored = localStorage.getItem(STORAGE_KEY) ?? "";
+    const stored = JSON.stringify(useTaskerStore.getState().state);
     expect(stored).toContain('"fromDate":"2026-07-05"');
     expect(stored).toContain('"toDate":"2026-07-12"');
     expect(stored).not.toContain("completedDate");
   });
 
   it("moves completed tasks into the completed-today section immediately", async () => {
-    seedTodayTaskState();
+    await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
@@ -267,7 +272,7 @@ describe("App", () => {
   });
 
   it("keeps recurring completion cycle based on the actual completion date", async () => {
-    seedState({
+    await seedState({
       tasks: [
         {
           id: "task-1",
@@ -298,14 +303,14 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Wykonane" }));
 
-    const stored = localStorage.getItem(STORAGE_KEY) ?? "";
+    const stored = JSON.stringify(useTaskerStore.getState().state);
     expect(stored).toContain('"scheduledDate":"2026-07-01"');
     expect(stored).toContain('"completedDate":"2026-07-03"');
   });
 
   it("creates a one-time task from the separate tasks view", async () => {
     seedTaskState();
-    resetTaskerStore();
+    await resetTaskerStore();
     renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
     const user = userEvent.setup();
 
@@ -325,7 +330,7 @@ describe("App", () => {
 
   it("edits a task into an every-N-days recurring task", async () => {
     seedTaskState();
-    resetTaskerStore();
+    await resetTaskerStore();
     renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
     const user = userEvent.setup();
 
@@ -345,7 +350,7 @@ describe("App", () => {
 
   it("deactivates a task from the tasks list without removing it", async () => {
     seedTaskState();
-    resetTaskerStore();
+    await resetTaskerStore();
     renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
     const user = userEvent.setup();
 
@@ -367,7 +372,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Dodaj kategorie" }));
 
     expect(screen.getByText("Dom")).toBeInTheDocument();
-    expect(localStorage.getItem(STORAGE_KEY)).toContain("#40c057");
+    expect(JSON.stringify(useTaskerStore.getState().state)).toContain("#40c057");
   });
 
   it("manages task type and priority dictionaries from configuration", async () => {
@@ -410,7 +415,7 @@ describe("App", () => {
       postponements: []
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(storedState));
-    resetTaskerStore();
+    await resetTaskerStore();
     renderApp();
     const user = userEvent.setup();
 
@@ -433,26 +438,6 @@ describe("App", () => {
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:tasker-export");
-  });
-
-  it("wires JSONHosting document creation from the Dane view to the store", async () => {
-    const originalCreate = useTaskerStore.getState().createJsonHostingDocument;
-    const createJsonHostingDocument = vi.fn().mockResolvedValue(undefined);
-    useTaskerStore.setState({ createJsonHostingDocument });
-
-    try {
-      renderApp();
-      const user = userEvent.setup();
-
-      await user.click(screen.getByRole("button", { name: "Dane" }));
-      await user.click(screen.getByRole("button", { name: "Utworz nowy dokument JSONHosting z biezacych danych" }));
-
-      expect(createJsonHostingDocument).toHaveBeenCalledOnce();
-    } finally {
-      act(() => {
-        useTaskerStore.setState({ createJsonHostingDocument: originalCreate });
-      });
-    }
   });
 
   it("forwards Tigris configuration and disconnection from the Dane view to the store", async () => {

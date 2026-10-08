@@ -1,3 +1,5 @@
+> Historical document. Superseded by the 2026-10-08 concurrent-task-editing design; the JSONHosting integration has been removed.
+
 # JSONHosting Document Creation Design
 
 ## Goal

@@ -17,9 +17,9 @@ function renderCalendar() {
   return { onCreateTaskForDate, onEditTask };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
-  resetTaskerStore();
+  await resetTaskerStore();
 });
 
 describe("CalendarView", () => {
@@ -34,7 +34,7 @@ describe("CalendarView", () => {
   });
 
   it("shows one-time tasks in the selected day and starts editing from the day panel", async () => {
-    useTaskerStore.getState().addTask(
+    await useTaskerStore.getState().addTask(
       {
         title: "Zaplacic rachunek",
         categoryName: "Finanse",
@@ -58,7 +58,7 @@ describe("CalendarView", () => {
   });
 
   it("shows future recurring occurrences", async () => {
-    useTaskerStore.getState().addTask(
+    await useTaskerStore.getState().addTask(
       {
         title: "Trening",
         categoryName: "Zdrowie",
@@ -78,7 +78,7 @@ describe("CalendarView", () => {
   });
 
   it("postpones a selected-day task to a chosen date", async () => {
-    useTaskerStore.getState().addTask(
+    await useTaskerStore.getState().addTask(
       {
         title: "Zadzwonic",
         categoryName: "Dom",

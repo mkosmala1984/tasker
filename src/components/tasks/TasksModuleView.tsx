@@ -1,5 +1,5 @@
 import { Paper } from "@mantine/core";
-import type { TaskDraft } from "../../domain/types";
+import type { AppState, TaskDraft } from "../../domain/types";
 import { useTaskerStore } from "../../state/taskerStore";
 import { TaskEditorView } from "./TaskEditorView";
 import { TaskListView } from "./TaskListView";
@@ -19,13 +19,13 @@ export function TasksModuleView({ today }: Props) {
   const updateTask = useTaskerStore((store) => store.updateTask);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
 
-  function handleCreate(draft: TaskDraft) {
-    addTask(draft);
+  async function handleCreate(draft: TaskDraft) {
+    await addTask(draft);
     closeTaskEditor();
   }
 
-  function handleUpdate(taskId: string, draft: TaskDraft) {
-    updateTask(taskId, draft);
+  async function handleUpdate(taskId: string, draft: TaskDraft, base: AppState) {
+    await updateTask(taskId, draft, undefined, base);
     closeTaskEditor();
   }
 
@@ -33,6 +33,7 @@ export function TasksModuleView({ today }: Props) {
     <Paper withBorder p="lg" radius="md" shadow="xs">
       {taskEditorTaskId !== undefined ? (
         <TaskEditorView
+          key={taskEditorTaskId ?? "create"}
           state={state}
           today={today}
           initialDate={taskEditorInitialDate}
@@ -42,7 +43,7 @@ export function TasksModuleView({ today }: Props) {
           onCancel={closeTaskEditor}
         />
       ) : (
-        <TaskListView state={state} onCreate={openTaskCreate} onEdit={openTaskEdit} onDeactivate={deactivateTask} />
+        <TaskListView state={state} onCreate={() => openTaskCreate()} onEdit={openTaskEdit} onDeactivate={(id) => void deactivateTask(id).catch(() => undefined)} />
       )}
     </Paper>
   );

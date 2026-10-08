@@ -13,61 +13,66 @@ import {
   updateTaskType as updateTaskTypeDomain,
   type CategoryInput,
   type DictionaryInput,
-  type PriorityInput
+  type PriorityInput,
 } from "../domain/configuration";
 import { addDays, getTodayString } from "../domain/dates";
 import { emptyHistoryFilters, type HistoryFilters } from "../domain/history";
-import { addTask, completeTask, deactivateTask, postponeTask, updateTask } from "../domain/tasks";
-import type { AppState, AppView, TaskDraft, TodayFilters } from "../domain/types";
-import { previewImport as previewImportDomain, type ImportPreview } from "../storage/taskerBackup";
 import {
-  clearJsonHostingCredentials,
-  createJsonHostingDocument,
-  loadJsonHostingCredentials,
-  saveJsonHostingCredentials,
-  type JsonHostingCredentials
-} from "../storage/jsonHostingStorage";
+  addTask,
+  completeTask,
+  deactivateTask,
+  postponeTask,
+  updateTask,
+} from "../domain/tasks";
+import type {
+  AppState,
+  AppView,
+  TaskDraft,
+  TodayFilters,
+} from "../domain/types";
+import { createOperation, type SyncConflict } from "../domain/syncOperations";
+import {
+  previewImport as previewImportDomain,
+  type ImportPreview,
+} from "../storage/taskerBackup";
 import {
   clearTigrisCredentials,
   getTigrisEnvelope,
   loadTigrisCredentials,
   putTigrisEnvelope,
   saveTigrisCredentials,
-  TigrisNotFoundError,
-  type TigrisCredentials
+  type TigrisCredentials,
 } from "../storage/tigrisStorage";
-import { loadState, saveState } from "../storage/taskerStorage";
+import { loadState, STORAGE_KEY } from "../storage/taskerStorage";
 import {
-  createJsonHostingSyncController,
-  type JsonHostingSyncController,
-  type JsonHostingSyncStatus
-} from "./jsonHostingSync";
+  journalNotifications,
+  SyncJournal,
+  JournalMissingError,
+  type JournalRecord,
+} from "../storage/syncJournal";
 import {
   createRemoteSyncController,
-  type RemoteSyncController,
-  type RemoteSyncStatus
+  type RemoteSyncStatus,
 } from "./remoteSync";
-
-export const emptyFilters: TodayFilters = { categoryId: "", assigneeId: "", taskTypeId: "", priorityId: "" };
-export type SyncProvider = "tigris" | "jsonhosting";
-
-function createId(prefix: string): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+export const emptyFilters: TodayFilters = {
+  categoryId: "",
+  assigneeId: "",
+  taskTypeId: "",
+  priorityId: "",
+};
+const DATASET_KEY = "tasker:dataset:v2";
+function datasetFor(c: TigrisCredentials) {
+  return JSON.stringify(["tigris", c.bucket, c.objectKey]);
 }
-
 export type TaskerStore = {
   state: AppState;
   storageError?: string;
-  jsonHostingCredentials?: JsonHostingCredentials;
-  jsonHostingStatus: JsonHostingSyncStatus;
+  ready: boolean;
+  conflicts: SyncConflict[];
+  pendingCount: number;
+  localVersion: number;
   tigrisCredentials?: TigrisCredentials;
   tigrisStatus: RemoteSyncStatus;
-  syncProvider?: SyncProvider;
-  observedRemoteRevision: number;
-  observedRemoteUpdatedAt: string;
   filters: TodayFilters;
   historyFilters: HistoryFilters;
   view: AppView;
@@ -78,371 +83,461 @@ export type TaskerStore = {
   setHistoryFilters: (filters: HistoryFilters) => void;
   setView: (view: AppView) => void;
   setSelectedCalendarDate: (date: string) => void;
-  openTaskCreate: (initialDate?: string) => void;
-  openTaskEdit: (taskId: string) => void;
+  openTaskCreate: (date?: string) => void;
+  openTaskEdit: (id: string) => void;
   closeTaskEditor: () => void;
-  addCategory: (input: CategoryInput) => void;
-  updateCategory: (categoryId: string, input: CategoryInput) => void;
-  deactivateCategory: (categoryId: string) => void;
-  addTaskType: (input: DictionaryInput) => void;
-  updateTaskType: (taskTypeId: string, input: DictionaryInput) => void;
-  setTaskTypeActive: (taskTypeId: string, active: boolean) => void;
-  moveTaskType: (taskTypeId: string, direction: "up" | "down") => void;
-  addPriority: (input: PriorityInput) => void;
-  updatePriority: (priorityId: string, input: PriorityInput) => void;
-  setPriorityActive: (priorityId: string, active: boolean) => void;
-  movePriority: (priorityId: string, direction: "up" | "down") => void;
+  addCategory: (input: CategoryInput) => Promise<void>;
+  updateCategory: (id: string, input: CategoryInput) => Promise<void>;
+  deactivateCategory: (id: string) => Promise<void>;
+  addTaskType: (input: DictionaryInput) => Promise<void>;
+  updateTaskType: (id: string, input: DictionaryInput) => Promise<void>;
+  setTaskTypeActive: (id: string, active: boolean) => Promise<void>;
+  moveTaskType: (id: string, direction: "up" | "down") => Promise<void>;
+  addPriority: (input: PriorityInput) => Promise<void>;
+  updatePriority: (id: string, input: PriorityInput) => Promise<void>;
+  setPriorityActive: (id: string, active: boolean) => Promise<void>;
+  movePriority: (id: string, direction: "up" | "down") => Promise<void>;
   previewImport: (raw: string) => ImportPreview;
-  applyImport: (preview: ImportPreview) => void;
-  addTask: (draft: TaskDraft, now?: Date) => void;
-  updateTask: (taskId: string, draft: TaskDraft, now?: Date) => void;
-  deactivateTask: (taskId: string, now?: Date) => void;
-  completeTask: (taskId: string, scheduledDate: string, now?: Date) => void;
-  postponeTask: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
-  postponeTaskToDate: (taskId: string, scheduledDate: string, toDate: string, now?: Date) => void;
-  postponeTaskToTomorrow: (taskId: string, scheduledDate: string, now?: Date) => void;
-  configureJsonHosting: (credentials: JsonHostingCredentials) => void;
-  configureTigris: (credentials: TigrisCredentials) => Promise<void>;
-  createJsonHostingDocument: () => Promise<void>;
-  disconnectJsonHosting: () => void;
-  disconnectTigris: () => void;
+  applyImport: (preview: ImportPreview) => Promise<void>;
+  addTask: (draft: TaskDraft, now?: Date) => Promise<void>;
+  updateTask: (
+    id: string,
+    draft: TaskDraft,
+    now?: Date,
+    editingBase?: AppState,
+  ) => Promise<void>;
+  deactivateTask: (id: string, now?: Date) => Promise<void>;
+  completeTask: (id: string, date: string, now?: Date) => Promise<void>;
+  postponeTask: (
+    id: string,
+    from: string,
+    to: string,
+    now?: Date,
+  ) => Promise<void>;
+  postponeTaskToDate: (
+    id: string,
+    from: string,
+    to: string,
+    now?: Date,
+  ) => Promise<void>;
+  postponeTaskToTomorrow: (
+    id: string,
+    from: string,
+    now?: Date,
+  ) => Promise<void>;
+  configureTigris: (c: TigrisCredentials) => Promise<void>;
+  disconnectTigris: () => Promise<void>;
+  resolveConflict: (
+    conflict: SyncConflict,
+    choice: "local" | "remote",
+  ) => Promise<void>;
   startSync: () => void;
   stopSync: () => void;
-  startJsonHostingSync: () => void;
-  stopJsonHostingSync: () => void;
-  reset: () => void;
+  refresh: () => Promise<void>;
+  initialize: () => Promise<void>;
+  reset: (journal?: SyncJournal) => Promise<void>;
 };
-
-function loadInitialStoreState() {
+export function createTaskerStore(initialJournal = new SyncJournal()) {
+  let journal = initialJournal,
+    dataset = "local",
+    sessionId = crypto.randomUUID();
+  let initialization: Promise<void>,
+    notifications: ReturnType<typeof journalNotifications> | undefined;
+  let writeTail: Promise<void> = Promise.resolve(),
+    changingConnection = false,
+    syncRequested = false;
+  let controller: ReturnType<
+    typeof createRemoteSyncController<TigrisCredentials>
+  >;
   const initial = loadState();
-  const today = getTodayString();
-  const jsonHostingCredentials = loadJsonHostingCredentials();
-  const tigrisCredentials = loadTigrisCredentials();
-  const syncProvider: SyncProvider | undefined = tigrisCredentials === undefined
-    ? (jsonHostingCredentials === undefined ? undefined : "jsonhosting")
-    : "tigris";
-  return {
-    state: initial.state,
-    storageError: initial.error,
-    jsonHostingCredentials,
-    jsonHostingStatus: { kind: "disconnected" } as JsonHostingSyncStatus,
-    tigrisCredentials,
-    tigrisStatus: { kind: "disconnected" } as RemoteSyncStatus,
-    syncProvider,
-    observedRemoteRevision: 0,
-    observedRemoteUpdatedAt: "",
-    filters: emptyFilters,
-    historyFilters: emptyHistoryFilters,
-    view: "today" as AppView,
-    selectedCalendarDate: today,
-    taskEditorTaskId: undefined,
-    taskEditorInitialDate: undefined
-  };
-}
-
-function persist(nextState: AppState): Pick<TaskerStore, "state"> {
-  saveState(nextState);
-  const { syncProvider } = useTaskerStore.getState();
-  if (syncProvider === "jsonhosting") {
-    syncController.scheduleSave(nextState);
-  } else if (syncProvider === "tigris") {
-    tigrisSyncController.scheduleSave(nextState);
-  }
-  return { state: nextState };
-}
-
-export const useTaskerStore = create<TaskerStore>((set, get) => ({
-  ...loadInitialStoreState(),
-  setFilters: (filters) => set({ filters }),
-  setHistoryFilters: (historyFilters) => set({ historyFilters }),
-  setView: (view) => set({ view, taskEditorTaskId: undefined, taskEditorInitialDate: undefined }),
-  setSelectedCalendarDate: (selectedCalendarDate) => set({ selectedCalendarDate }),
-  openTaskCreate: (taskEditorInitialDate) => set({ view: "tasks", taskEditorTaskId: null, taskEditorInitialDate }),
-  openTaskEdit: (taskId) => set({ view: "tasks", taskEditorTaskId: taskId, taskEditorInitialDate: undefined }),
-  closeTaskEditor: () => set({ taskEditorTaskId: undefined, taskEditorInitialDate: undefined }),
-  addCategory: (input) => {
-    set(persist(addCategoryDomain(get().state, input, () => createId("category"))));
-  },
-  updateCategory: (categoryId, input) => {
-    set(persist(updateCategoryDomain(get().state, categoryId, input)));
-  },
-  deactivateCategory: (categoryId) => {
-    set(persist(deactivateCategoryDomain(get().state, categoryId)));
-  },
-  addTaskType: (input) => {
-    set(persist(addTaskTypeDomain(get().state, input, () => createId("task-type"))));
-  },
-  updateTaskType: (taskTypeId, input) => {
-    set(persist(updateTaskTypeDomain(get().state, taskTypeId, input)));
-  },
-  setTaskTypeActive: (taskTypeId, active) => {
-    set(persist(setTaskTypeActiveDomain(get().state, taskTypeId, active)));
-  },
-  moveTaskType: (taskTypeId, direction) => {
-    set(persist(moveTaskTypeDomain(get().state, taskTypeId, direction)));
-  },
-  addPriority: (input) => {
-    set(persist(addPriorityDomain(get().state, input, () => createId("priority"))));
-  },
-  updatePriority: (priorityId, input) => {
-    set(persist(updatePriorityDomain(get().state, priorityId, input)));
-  },
-  setPriorityActive: (priorityId, active) => {
-    set(persist(setPriorityActiveDomain(get().state, priorityId, active)));
-  },
-  movePriority: (priorityId, direction) => {
-    set(persist(movePriorityDomain(get().state, priorityId, direction)));
-  },
-  previewImport: (raw) => previewImportDomain(raw),
-  applyImport: (preview) => {
-    set(persist(preview.state));
-  },
-  addTask: (draft, now = new Date()) => {
-    set(persist(addTask(get().state, draft, now.toISOString())));
-  },
-  updateTask: (taskId, draft, now = new Date()) => {
-    set(persist(updateTask(get().state, taskId, draft, now.toISOString())));
-  },
-  deactivateTask: (taskId, now = new Date()) => {
-    set(persist(deactivateTask(get().state, taskId, now.toISOString())));
-  },
-  completeTask: (taskId, scheduledDate, now = new Date()) => {
-    const today = getTodayString(now);
-    set(persist(completeTask(get().state, taskId, scheduledDate, today)));
-  },
-  postponeTask: (taskId, scheduledDate, toDate, now = new Date()) => {
-    set(persist(postponeTask(get().state, taskId, scheduledDate, toDate, now.toISOString())));
-  },
-  postponeTaskToDate: (taskId, scheduledDate, toDate, now = new Date()) => {
-    set(persist(postponeTask(get().state, taskId, scheduledDate, toDate, now.toISOString())));
-  },
-  postponeTaskToTomorrow: (taskId, scheduledDate, now = new Date()) => {
-    const today = getTodayString(now);
-    set(persist(postponeTask(get().state, taskId, scheduledDate, addDays(today, 1), now.toISOString())));
-  },
-  configureJsonHosting: (credentials) => {
-    if (get().syncProvider === "tigris") {
-      tigrisSyncController.stop();
-      tigrisSyncController.setCredentials(undefined);
+  const store = create<TaskerStore>((set, get) => {
+    function publish(record: JournalRecord) {
+      if (record.dataset !== dataset || record.version < get().localVersion)
+        return;
+      set({
+        state: record.state,
+        conflicts: record.conflicts,
+        pendingCount: record.operations.length,
+        localVersion: record.version,
+        ready: true,
+      });
     }
-    saveJsonHostingCredentials(credentials);
-    syncController.setCredentials(credentials);
-    set({
-      jsonHostingCredentials: credentials,
-      jsonHostingStatus: { kind: "disconnected" },
-      syncProvider: "jsonhosting",
-      observedRemoteRevision: 0,
-      observedRemoteUpdatedAt: ""
-    });
-    syncController.start();
-    syncController.checkForRemoteUpdate();
-  },
-  configureTigris: async (credentials) => {
-    try {
-      let initialEnvelope;
-      let createdInitialObject = false;
-      try {
-        initialEnvelope = await getTigrisEnvelope(credentials);
-      } catch (error) {
-        if (!(error instanceof TigrisNotFoundError)) {
+    function report(error: unknown) {
+      set({
+        storageError:
+          error instanceof Error || error instanceof DOMException
+            ? error.message
+            : "Nie można zapisać danych lokalnych.",
+      });
+    }
+    function mutate(
+      transform: (state: AppState) => AppState,
+      editingBase = get().state,
+    ): Promise<void> {
+      if (changingConnection)
+        return Promise.reject(
+          new Error(
+            "Poczekaj na zakończenie zmiany połączenia. Szkic pozostaje w formularzu.",
+          ),
+        );
+      const target = dataset,
+        operation = createOperation(
+          editingBase,
+          transform(editingBase),
+          sessionId,
+        );
+      const perform = async () => {
+        try {
+          await initialization;
+          const record = await journal.append(target, operation);
+          publish(record);
+          set({ storageError: undefined });
+          notifications?.notify();
+          if (dataset === target) controller.scheduleSave();
+        } catch (error) {
+          report(error);
           throw error;
         }
-        initialEnvelope = { version: 1 as const, revision: 0, updatedAt: new Date().toISOString(), state: get().state };
-        await putTigrisEnvelope(credentials, initialEnvelope);
-        createdInitialObject = true;
-      }
-
-      if (get().syncProvider === "jsonhosting") {
-        syncController.stop();
-        syncController.setCredentials(undefined);
-      }
-      saveTigrisCredentials(credentials);
-      tigrisSyncController.setCredentials(credentials);
-      set({
-        tigrisCredentials: credentials,
-        tigrisStatus: { kind: "disconnected" },
-        syncProvider: "tigris",
-        observedRemoteRevision: createdInitialObject ? initialEnvelope.revision : 0,
-        observedRemoteUpdatedAt: createdInitialObject ? initialEnvelope.updatedAt : ""
-      });
-      tigrisSyncController.start();
-      tigrisSyncController.checkForRemoteUpdate();
-    } catch (error) {
-      set({ tigrisStatus: { kind: "error", message: error instanceof Error ? error.message : "Nie mozna polaczyc z Tigris." } });
+      };
+      const result = writeTail.then(perform);
+      writeTail = result.catch(() => undefined);
+      return result;
     }
-  },
-  createJsonHostingDocument: async () => {
-    const state = get().state;
-    const updatedAt = new Date().toISOString();
-    const previousCredentials = get().jsonHostingCredentials;
-    const previousObservedRemoteRevision = get().observedRemoteRevision;
-    const previousObservedRemoteUpdatedAt = get().observedRemoteUpdatedAt;
-    let activationStarted = false;
-    set({ jsonHostingStatus: { kind: "syncing" } });
-    try {
-      const { credentials, envelope } = await createJsonHostingDocument(state, updatedAt);
-      activationStarted = true;
-      syncController.stop();
-      if (get().syncProvider === "tigris") {
-        tigrisSyncController.stop();
-        tigrisSyncController.setCredentials(undefined);
-      }
-      saveJsonHostingCredentials(credentials);
-      set({
-        jsonHostingCredentials: credentials,
-        jsonHostingStatus: { kind: "disconnected" },
-        syncProvider: "jsonhosting",
-        observedRemoteRevision: envelope.revision,
-        observedRemoteUpdatedAt: envelope.updatedAt
-      });
-      syncController.setCredentials(credentials);
-      syncController.start();
-      syncController.checkForRemoteUpdate();
-    } catch (error) {
-      if (activationStarted) {
+    const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
+    const postpone = (
+      taskId: string,
+      from: string,
+      to: string,
+      now = new Date(),
+    ) => mutate((s) => postponeTask(s, taskId, from, to, now.toISOString()));
+    return {
+      state: initial.state,
+      storageError: initial.error,
+      ready: false,
+      conflicts: [],
+      pendingCount: 0,
+      localVersion: 0,
+      tigrisCredentials: loadTigrisCredentials(),
+      tigrisStatus: { kind: "local" },
+      filters: emptyFilters,
+      historyFilters: emptyHistoryFilters,
+      view: "today",
+      selectedCalendarDate: getTodayString(),
+      setFilters: (filters) => set({ filters }),
+      setHistoryFilters: (historyFilters) => set({ historyFilters }),
+      setView: (view) =>
+        set({
+          view,
+          taskEditorTaskId: undefined,
+          taskEditorInitialDate: undefined,
+        }),
+      setSelectedCalendarDate: (selectedCalendarDate) =>
+        set({ selectedCalendarDate }),
+      openTaskCreate: (taskEditorInitialDate) =>
+        set({ view: "tasks", taskEditorTaskId: null, taskEditorInitialDate }),
+      openTaskEdit: (taskEditorTaskId) =>
+        set({
+          view: "tasks",
+          taskEditorTaskId,
+          taskEditorInitialDate: undefined,
+        }),
+      closeTaskEditor: () =>
+        set({ taskEditorTaskId: undefined, taskEditorInitialDate: undefined }),
+      addCategory: (input) =>
+        mutate((s) => addCategoryDomain(s, input, () => id("category"))),
+      updateCategory: (key, input) =>
+        mutate((s) => updateCategoryDomain(s, key, input)),
+      deactivateCategory: (key) =>
+        mutate((s) => deactivateCategoryDomain(s, key)),
+      addTaskType: (input) =>
+        mutate((s) => addTaskTypeDomain(s, input, () => id("task-type"))),
+      updateTaskType: (key, input) =>
+        mutate((s) => updateTaskTypeDomain(s, key, input)),
+      setTaskTypeActive: (key, active) =>
+        mutate((s) => setTaskTypeActiveDomain(s, key, active)),
+      moveTaskType: (key, direction) =>
+        mutate((s) => moveTaskTypeDomain(s, key, direction)),
+      addPriority: (input) =>
+        mutate((s) => addPriorityDomain(s, input, () => id("priority"))),
+      updatePriority: (key, input) =>
+        mutate((s) => updatePriorityDomain(s, key, input)),
+      setPriorityActive: (key, active) =>
+        mutate((s) => setPriorityActiveDomain(s, key, active)),
+      movePriority: (key, direction) =>
+        mutate((s) => movePriorityDomain(s, key, direction)),
+      addTask: (draft, now = new Date()) =>
+        mutate((s) => addTask(s, draft, now.toISOString())),
+      updateTask: (key, draft, now = new Date(), base) =>
+        mutate((s) => updateTask(s, key, draft, now.toISOString()), base),
+      deactivateTask: (key, now = new Date()) =>
+        mutate((s) => deactivateTask(s, key, now.toISOString())),
+      completeTask: (key, date, now = new Date()) =>
+        mutate((s) => completeTask(s, key, date, getTodayString(now))),
+      postponeTask: postpone,
+      postponeTaskToDate: postpone,
+      postponeTaskToTomorrow: (key, date, now = new Date()) =>
+        postpone(key, date, addDays(getTodayString(now), 1), now),
+      previewImport: (raw) => ({
+        ...previewImportDomain(raw),
+        localVersion: get().localVersion,
+      }),
+      applyImport: async (preview) => {
+        if (changingConnection)
+          throw new Error("Poczekaj na zakończenie zmiany połączenia.");
+        const target = dataset,
+          base = get().state;
         try {
-          syncController.stop();
-        } catch {
-          // Continue restoring the remaining connection state.
+          await initialization;
+          publish(
+            await journal.append(
+              target,
+              createOperation(base, preview.state, sessionId, true),
+              preview.localVersion,
+            ),
+          );
+          notifications?.notify();
+          controller.scheduleSave();
+        } catch (error) {
+          report(error);
+          throw error;
         }
+      },
+      resolveConflict: async (conflict, choice) => {
+        if (changingConnection)
+          throw new Error("Poczekaj na zakończenie zmiany połączenia.");
         try {
-          if (previousCredentials === undefined) {
-            clearJsonHostingCredentials();
-          } else {
-            saveJsonHostingCredentials(previousCredentials);
-          }
-        } catch {
-          // Persistence restoration is best-effort.
+          await initialization;
+          publish(
+            await journal.resolve(
+              dataset,
+              conflict.operationId,
+              conflict.field,
+              conflict.id,
+              choice,
+            ),
+          );
+          notifications?.notify();
+          controller.scheduleSave();
+        } catch (error) {
+          report(error);
+          throw error;
         }
+      },
+      configureTigris: async (credentials) => {
+        if (changingConnection) return;
+        changingConnection = true;
         try {
+          await initialization;
+          await writeTail;
+          const nextDataset = datasetFor(credentials),
+            current = await journal.read(dataset);
+          if (
+            get().tigrisCredentials &&
+            nextDataset !== dataset &&
+            current.operations.length
+          )
+            throw new Error(
+              "Zmiany oczekują na synchronizację. Najpierw zakończ synchronizację albo rozłącz i zachowaj je lokalnie; poprzedni dziennik pozostanie zapisany.",
+            );
+          const next = await journal.initialize(nextDataset, current.state);
+          // Complete all durable writes before replacing the active connection.
+          saveTigrisCredentials(credentials);
+          localStorage.setItem(DATASET_KEY, nextDataset);
+          controller.stop();
+          dataset = nextDataset;
+          controller.setCredentials(credentials, dataset);
           set({
-            jsonHostingCredentials: previousCredentials,
-            observedRemoteRevision: previousObservedRemoteRevision,
-            observedRemoteUpdatedAt: previousObservedRemoteUpdatedAt
+            tigrisCredentials: credentials,
+            localVersion: 0,
+            storageError: undefined,
           });
-        } catch {
-          // Continue restoring the remaining connection state.
+          publish(next);
+          controller.start();
+          await controller.syncNow();
+        } catch (error) {
+          set({
+            tigrisStatus: {
+              kind: "error",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Nie można połączyć z Tigris.",
+            },
+          });
+        } finally {
+          changingConnection = false;
         }
+      },
+      disconnectTigris: async () => {
+        if (changingConnection) return;
+        changingConnection = true;
         try {
-          syncController.setCredentials(previousCredentials);
-        } catch {
-          // Continue restoring the remaining connection state.
+          await initialization;
+          await writeTail;
+          const current = await journal.read(dataset),
+            nextDataset = `local:${crypto.randomUUID()}`;
+          const next = await journal.initialize(nextDataset, current.state);
+          localStorage.setItem(DATASET_KEY, nextDataset);
+          clearTigrisCredentials();
+          controller.stop();
+          controller.setCredentials(undefined, nextDataset);
+          dataset = nextDataset;
+          set({
+            tigrisCredentials: undefined,
+            tigrisStatus: { kind: "local" },
+            localVersion: 0,
+          });
+          publish(next);
+          notifications?.notify();
+        } catch (error) {
+          report(error);
+        } finally {
+          changingConnection = false;
         }
-        if (previousCredentials !== undefined) {
-          try {
-            syncController.start();
-          } catch {
-            // The original activation error remains the user-visible failure.
+      },
+      initialize: () => initialization,
+      refresh: async () => {
+        try {
+          await initialization;
+          const record = await journal.read(dataset);
+          if (record.version > get().localVersion) {
+            publish(record);
+            controller.scheduleSave();
           }
-          try {
-            syncController.checkForRemoteUpdate();
-          } catch {
-            // The original activation error remains the user-visible failure.
-          }
+        } catch (error) {
+          report(error);
         }
-      }
-      set({
-        jsonHostingStatus: {
-          kind: "error",
-          message: error instanceof Error ? error.message : "Nie mozna utworzyc dokumentu JSONHosting."
+      },
+      startSync: () => {
+        syncRequested = true;
+        notifications ??= journalNotifications(() => {
+          void get().refresh();
+        });
+        void initialization
+          .then(() => {
+            if (syncRequested) {
+              controller.start();
+              controller.checkForRemoteUpdate();
+            }
+          })
+          .catch(report);
+      },
+      stopSync: () => {
+        syncRequested = false;
+        controller.stop();
+        notifications?.close();
+        notifications = undefined;
+      },
+      reset: async (replacementJournal) => {
+        get().stopSync();
+        await initialization.catch(() => undefined);
+        await writeTail;
+        if (replacementJournal) {
+          await journal.close();
+          journal = replacementJournal;
         }
+        sessionId = crypto.randomUUID();
+        set({
+          ...initial,
+          ...loadState(),
+          ready: false,
+          conflicts: [],
+          pendingCount: 0,
+          localVersion: 0,
+          tigrisCredentials: loadTigrisCredentials(),
+          tigrisStatus: { kind: "local" },
+          filters: emptyFilters,
+          historyFilters: emptyHistoryFilters,
+          view: "today",
+          taskEditorTaskId: undefined,
+          taskEditorInitialDate: undefined,
+        });
+        initialization = initialize();
+        await initialization;
+      },
+    };
+  });
+  controller = createRemoteSyncController({
+    dataset,
+    credentials: store.getState().tigrisCredentials,
+    journal: {
+      read: (key) => journal.read(key),
+      acceptRemote: (key, doc, created) =>
+        journal.acceptRemote(key, doc, created),
+    },
+    storage: {
+      getRemoteEnvelope: getTigrisEnvelope,
+      putRemoteEnvelope: putTigrisEnvelope,
+    },
+    setStatus: (tigrisStatus) => {
+      const current = store.getState();
+      if (
+        tigrisStatus.kind === "synced" &&
+        (current.pendingCount || current.conflicts.length)
+      )
+        tigrisStatus = {
+          kind: current.conflicts.length ? "conflict" : "pending",
+        };
+      store.setState({ tigrisStatus });
+    },
+    onChange: (record) => {
+      if (
+        record.dataset !== dataset ||
+        record.version < store.getState().localVersion
+      )
+        return;
+      store.setState({
+        state: record.state,
+        conflicts: record.conflicts,
+        pendingCount: record.operations.length,
+        localVersion: record.version,
       });
+      notifications?.notify();
+    },
+  });
+  async function initialize() {
+    const credentials = store.getState().tigrisCredentials;
+    dataset = credentials
+      ? datasetFor(credentials)
+      : (localStorage.getItem(DATASET_KEY) ?? "local");
+    // The legacy value is retained as a recovery copy. Credential cleanup follows the durable transaction.
+    let record: JournalRecord;
+    try {
+      record = await journal.read(dataset);
+    } catch (error) {
+      if (!(error instanceof JournalMissingError)) throw error;
+      const legacy = loadState();
+      if (legacy.error) throw new Error(legacy.error);
+      record = await journal.initialize(dataset, legacy.state);
     }
-  },
-  disconnectJsonHosting: () => {
-    clearJsonHostingCredentials();
-    syncController.setCredentials(undefined);
-    if (get().syncProvider === "jsonhosting") {
-      syncController.stop();
-      set({ syncProvider: undefined, observedRemoteRevision: 0, observedRemoteUpdatedAt: "" });
-    }
-    set({ jsonHostingCredentials: undefined, jsonHostingStatus: { kind: "disconnected" } });
-  },
-  disconnectTigris: () => {
-    clearTigrisCredentials();
-    tigrisSyncController.setCredentials(undefined);
-    if (get().syncProvider === "tigris") {
-      tigrisSyncController.stop();
-      set({ syncProvider: undefined, observedRemoteRevision: 0, observedRemoteUpdatedAt: "" });
-    }
-    set({ tigrisCredentials: undefined, tigrisStatus: { kind: "disconnected" } });
-  },
-  startSync: () => {
-    const provider = get().syncProvider;
-    const controller = provider === "tigris" ? tigrisSyncController : provider === "jsonhosting" ? syncController : undefined;
-    controller?.start();
-    controller?.checkForRemoteUpdate();
-  },
-  stopSync: () => {
-    const provider = get().syncProvider;
-    (provider === "tigris" ? tigrisSyncController : provider === "jsonhosting" ? syncController : undefined)?.stop();
-  },
-  startJsonHostingSync: () => {
-    syncController.start();
-    syncController.checkForRemoteUpdate();
-  },
-  stopJsonHostingSync: () => syncController.stop(),
-  reset: () => {
-    const initial = loadInitialStoreState();
-    syncController.setCredentials(initial.jsonHostingCredentials);
-    tigrisSyncController.setCredentials(initial.tigrisCredentials);
-    set(initial);
+    localStorage.setItem(DATASET_KEY, dataset);
+    localStorage.removeItem("tasker:jsonhosting:v1");
+    store.setState({
+      state: record.state,
+      conflicts: record.conflicts,
+      pendingCount: record.operations.length,
+      localVersion: record.version,
+      ready: true,
+      storageError: undefined,
+    });
+    controller.setCredentials(credentials, dataset);
   }
-}));
-
-const syncController: JsonHostingSyncController = createJsonHostingSyncController({
-  credentials: useTaskerStore.getState().jsonHostingCredentials,
-  getLocalSnapshot: () => {
-    const { state, observedRemoteRevision, observedRemoteUpdatedAt } = useTaskerStore.getState();
-    return { state, observedRevision: observedRemoteRevision, updatedAt: observedRemoteUpdatedAt };
-  },
-  replaceLocal: (envelope) => {
-    saveState(envelope.state);
-    useTaskerStore.setState({
-      state: envelope.state,
-      observedRemoteRevision: envelope.revision,
-      observedRemoteUpdatedAt: envelope.updatedAt
-    });
-  },
-  confirmLocalSave: (envelope) =>
-    useTaskerStore.setState({
-      observedRemoteRevision: envelope.revision,
-      observedRemoteUpdatedAt: envelope.updatedAt
+  initialization = initialize();
+  // Surface startup errors without producing an unhandled promise; mutations still reject the original failure.
+  void initialization.catch((error) =>
+    store.setState({
+      storageError:
+        error instanceof Error
+          ? error.message
+          : "Nie można otworzyć bazy danych.",
     }),
-  setStatus: (jsonHostingStatus) => useTaskerStore.setState({ jsonHostingStatus })
-});
-
-const tigrisSyncController: RemoteSyncController<TigrisCredentials> = createRemoteSyncController({
-  credentials: useTaskerStore.getState().tigrisCredentials,
-  storage: { getRemoteEnvelope: getTigrisEnvelope, putRemoteEnvelope: putTigrisEnvelope },
-  getLocalSnapshot: () => {
-    const { state, observedRemoteRevision, observedRemoteUpdatedAt } = useTaskerStore.getState();
-    return { state, observedRevision: observedRemoteRevision, updatedAt: observedRemoteUpdatedAt };
-  },
-  replaceLocal: (envelope) => {
-    saveState(envelope.state);
-    useTaskerStore.setState({
-      state: envelope.state,
-      observedRemoteRevision: envelope.revision,
-      observedRemoteUpdatedAt: envelope.updatedAt
-    });
-  },
-  confirmLocalSave: (envelope) =>
-    useTaskerStore.setState({
-      observedRemoteRevision: envelope.revision,
-      observedRemoteUpdatedAt: envelope.updatedAt
-    }),
-  setStatus: (tigrisStatus) => useTaskerStore.setState({ tigrisStatus })
-});
-
-if (useTaskerStore.getState().syncProvider === "jsonhosting") {
-  syncController.start();
-  syncController.checkForRemoteUpdate();
-} else if (useTaskerStore.getState().syncProvider === "tigris") {
-  tigrisSyncController.start();
-  tigrisSyncController.checkForRemoteUpdate();
+  );
+  return store;
 }
-
-export function resetTaskerStore(): void {
-  useTaskerStore.getState().reset();
+export const useTaskerStore = createTaskerStore();
+// Test reset keeps production journals intact and seeds an isolated database from the legacy fixture.
+export async function resetTaskerStore(): Promise<void> {
+  await useTaskerStore
+    .getState()
+    .reset(new SyncJournal(`tasker-test-${crypto.randomUUID()}`));
 }

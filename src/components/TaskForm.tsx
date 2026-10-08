@@ -1,5 +1,16 @@
-import { Alert, Button, Checkbox, Group, NativeSelect, NumberInput, Paper, Stack, Text, TextInput } from "@mantine/core";
-import { useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Group,
+  NativeSelect,
+  NumberInput,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import {
   createEmptyTaskFormValues,
@@ -9,7 +20,7 @@ import {
   UNASSIGNED_ASSIGNEE_NAME,
   validateTaskFormValues,
   type TaskFormErrors,
-  type TaskFormValues
+  type TaskFormValues,
 } from "../domain/taskForm";
 import type { AppState, Task, TaskDraft } from "../domain/types";
 
@@ -18,11 +29,13 @@ type Props = {
   today: string;
   task?: Task;
   submitLabel: string;
-  onSubmit: (draft: TaskDraft) => void;
+  onSubmit: (draft: TaskDraft) => void | Promise<void>;
   onCancel: () => void;
 };
 
-function activeOptions<T extends { id: string; name: string; active?: boolean; order?: number }>(items: T[]) {
+function activeOptions<
+  T extends { id: string; name: string; active?: boolean; order?: number },
+>(items: T[]) {
   return [...items]
     .filter((item) => item.active !== false)
     .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
@@ -30,36 +43,59 @@ function activeOptions<T extends { id: string; name: string; active?: boolean; o
 }
 
 function priorityOptions(state: AppState) {
-  return [{ value: "", label: "Domyslny priorytet" }, ...activeOptions(state.priorities)];
+  return [
+    { value: "", label: "Domyslny priorytet" },
+    ...activeOptions(state.priorities),
+  ];
 }
 
 function assigneeOptions(state: AppState) {
-  return [{ value: "", label: UNASSIGNED_ASSIGNEE_NAME }, ...activeOptions(state.assignees)];
+  return [
+    { value: "", label: UNASSIGNED_ASSIGNEE_NAME },
+    ...activeOptions(state.assignees),
+  ];
 }
 
 function hasErrors(errors: TaskFormErrors): boolean {
   return Object.keys(errors).length > 0;
 }
 
-export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }: Props) {
+export function TaskForm({
+  state,
+  today,
+  task,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: Props) {
   const [values, setValues] = useState<TaskFormValues>(() =>
-    task ? taskToFormValues(task, state) : createEmptyTaskFormValues(state, today)
+    task
+      ? taskToFormValues(task, state)
+      : createEmptyTaskFormValues(state, today),
   );
   const [errors, setErrors] = useState<TaskFormErrors>({});
 
-  useEffect(() => {
-    setValues(task ? taskToFormValues(task, state) : createEmptyTaskFormValues(state, today));
-    setErrors({});
-  }, [state, task, today]);
+  const [saveError, setSaveError] = useState<string>();
+  const [saving, setSaving] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validateTaskFormValues(values, state);
     setErrors(nextErrors);
     if (hasErrors(nextErrors)) {
       return;
     }
-    onSubmit(taskFormValuesToDraft(values, state));
+    setSaving(true);
+    setSaveError(undefined);
+    try {
+      await onSubmit(taskFormValuesToDraft(values, state));
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Nie można zapisać zadania.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -73,6 +109,11 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
       onSubmit={handleSubmit}
     >
       <Stack gap="sm">
+        {saveError ? (
+          <Alert color="red" title="Zapis przerwany">
+            {saveError}
+          </Alert>
+        ) : null}
         {errors.dictionary ? (
           <Alert color="yellow" title="Brakuje slownikow">
             {errors.dictionary}
@@ -85,7 +126,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           required
           value={values.title}
           error={errors.title}
-          onChange={(event) => setValues({ ...values, title: event.currentTarget.value })}
+          onChange={(event) =>
+            setValues({ ...values, title: event.currentTarget.value })
+          }
         />
 
         <NativeSelect
@@ -95,7 +138,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           value={values.taskTypeId}
           error={errors.taskTypeId}
           data={activeOptions(state.taskTypes)}
-          onChange={(event) => setValues({ ...values, taskTypeId: event.currentTarget.value })}
+          onChange={(event) =>
+            setValues({ ...values, taskTypeId: event.currentTarget.value })
+          }
         />
 
         <NativeSelect
@@ -104,9 +149,14 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           value={values.mode}
           data={[
             { value: "oneTime", label: "Jednorazowe" },
-            { value: "recurring", label: "Cykliczne" }
+            { value: "recurring", label: "Cykliczne" },
           ]}
-          onChange={(event) => setValues({ ...values, mode: event.currentTarget.value as TaskFormValues["mode"] })}
+          onChange={(event) =>
+            setValues({
+              ...values,
+              mode: event.currentTarget.value as TaskFormValues["mode"],
+            })
+          }
         />
 
         {values.mode === "oneTime" ? (
@@ -117,7 +167,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
             type="date"
             value={values.oneTimeDate}
             error={errors.oneTimeDate}
-            onChange={(event) => setValues({ ...values, oneTimeDate: event.currentTarget.value })}
+            onChange={(event) =>
+              setValues({ ...values, oneTimeDate: event.currentTarget.value })
+            }
           />
         ) : (
           <>
@@ -128,7 +180,12 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
               type="date"
               value={values.recurringStartDate}
               error={errors.recurringStartDate}
-              onChange={(event) => setValues({ ...values, recurringStartDate: event.currentTarget.value })}
+              onChange={(event) =>
+                setValues({
+                  ...values,
+                  recurringStartDate: event.currentTarget.value,
+                })
+              }
             />
             <NativeSelect
               label="Regula powtarzania"
@@ -136,7 +193,11 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
               value={values.recurrenceType}
               data={recurrenceOptions}
               onChange={(event) =>
-                setValues({ ...values, recurrenceType: event.currentTarget.value as TaskFormValues["recurrenceType"] })
+                setValues({
+                  ...values,
+                  recurrenceType: event.currentTarget
+                    .value as TaskFormValues["recurrenceType"],
+                })
               }
             />
             {values.recurrenceType === "everyNDays" ? (
@@ -148,7 +209,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
                 clampBehavior="none"
                 value={values.intervalDays}
                 error={errors.intervalDays}
-                onChange={(value) => setValues({ ...values, intervalDays: Number(value) })}
+                onChange={(value) =>
+                  setValues({ ...values, intervalDays: Number(value) })
+                }
               />
             ) : null}
           </>
@@ -161,7 +224,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           value={values.categoryId}
           error={errors.categoryId}
           data={activeOptions(state.categories)}
-          onChange={(event) => setValues({ ...values, categoryId: event.currentTarget.value })}
+          onChange={(event) =>
+            setValues({ ...values, categoryId: event.currentTarget.value })
+          }
         />
 
         <NativeSelect
@@ -170,7 +235,9 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           value={values.assigneeId}
           error={errors.assigneeId}
           data={assigneeOptions(state)}
-          onChange={(event) => setValues({ ...values, assigneeId: event.currentTarget.value })}
+          onChange={(event) =>
+            setValues({ ...values, assigneeId: event.currentTarget.value })
+          }
         />
 
         <NativeSelect
@@ -178,21 +245,28 @@ export function TaskForm({ state, today, task, submitLabel, onSubmit, onCancel }
           aria-label="Priorytet"
           value={values.priorityId}
           data={priorityOptions(state)}
-          onChange={(event) => setValues({ ...values, priorityId: event.currentTarget.value })}
+          onChange={(event) =>
+            setValues({ ...values, priorityId: event.currentTarget.value })
+          }
         />
 
         <Checkbox
           label="Aktywne"
           checked={values.active}
-          onChange={(event) => setValues({ ...values, active: event.currentTarget.checked })}
+          onChange={(event) =>
+            setValues({ ...values, active: event.currentTarget.checked })
+          }
         />
 
         <Text c="dimmed" size="sm">
-          Nieaktywne zadanie pozostaje w danych, ale nie pojawia sie w planie jako wymagajace reakcji.
+          Nieaktywne zadanie pozostaje w danych, ale nie pojawia sie w planie
+          jako wymagajace reakcji.
         </Text>
 
         <Group gap="xs">
-          <Button type="submit">{submitLabel}</Button>
+          <Button type="submit" disabled={saving}>
+            {submitLabel}
+          </Button>
           <Button type="button" variant="default" onClick={onCancel}>
             Anuluj
           </Button>

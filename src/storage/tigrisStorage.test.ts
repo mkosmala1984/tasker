@@ -48,6 +48,21 @@ const envelope = {
 };
 
 describe("tigrisStorage", () => {
+  it("uses IfNoneMatch for creation and classifies rejected preconditions", async () => {
+    send.mockResolvedValue({});
+    await putTigrisEnvelope(credentials, envelope, { create: true });
+    expect(send.mock.calls[0][0].input.IfNoneMatch).toBe("*");
+    expect(send.mock.calls[0][0].input.IfMatch).toBeUndefined();
+    send.mockRejectedValue({ name: "PreconditionFailed", $metadata: { httpStatusCode: 412 } });
+    await expect(putTigrisEnvelope(credentials, envelope, { etag: "old" })).rejects.toThrow(/Wersja/);
+  });
+  it("refuses GET without ETag and PUT without a version condition", async () => {
+    send.mockResolvedValue({ Body: { transformToString: async () => JSON.stringify(envelope) } });
+    await expect(getTigrisEnvelope(credentials)).rejects.toThrow(/ETag/);
+    send.mockClear();
+    await expect(putTigrisEnvelope(credentials, envelope, undefined as never)).rejects.toThrow(/warunku/);
+    expect(send).not.toHaveBeenCalled();
+  });
   afterEach(() => {
     localStorage.clear();
     send.mockReset();
@@ -81,9 +96,9 @@ describe("tigrisStorage", () => {
   });
 
   it("loads and validates a Tigris envelope", async () => {
-    send.mockResolvedValue({ Body: { transformToString: vi.fn().mockResolvedValue(JSON.stringify(envelope)) } });
+    send.mockResolvedValue({ ETag: '"etag"', Body: { transformToString: vi.fn().mockResolvedValue(JSON.stringify(envelope)) } });
 
-    await expect(getTigrisEnvelope(credentials)).resolves.toEqual(envelope);
+    await expect(getTigrisEnvelope(credentials)).resolves.toMatchObject({ envelope, etag: '"etag"' });
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       input: { Bucket: "tasker", Key: "tasker.json" }
     }));
@@ -93,7 +108,7 @@ describe("tigrisStorage", () => {
     send.mockResolvedValue({ Body: { transformToString: vi.fn().mockResolvedValue(JSON.stringify({ version: 1 })) } });
 
     await expect(getTigrisEnvelope(credentials)).rejects.toMatchObject({
-      message: "Nie mozna odczytac danych z Tigris."
+      message: "Nie mozna odczytac danych z Tigris. Sprawdź format i dostępność ETag w CORS."
     });
   });
 
@@ -119,7 +134,7 @@ describe("tigrisStorage", () => {
   it("puts only the signed envelope JSON", async () => {
     send.mockResolvedValue({});
 
-    await expect(putTigrisEnvelope(credentials, envelope)).resolves.toBeUndefined();
+    await expect(putTigrisEnvelope(credentials, envelope, { etag: '"etag"' })).resolves.toBeUndefined();
 
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       input: expect.objectContaining({
@@ -129,6 +144,7 @@ describe("tigrisStorage", () => {
         ContentType: "application/json"
       })
     }));
+    expect(send.mock.calls[0][0].input.IfMatch).toBe('"etag"');
     const command = send.mock.calls[0][0] as { input: { Body: string } };
     expect(command.input.Body).not.toContain(credentials.secretAccessKey);
   });
@@ -137,7 +153,7 @@ describe("tigrisStorage", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     send.mockRejectedValue(new Error(`request failed for ${credentials.secretAccessKey}`));
 
-    await expect(putTigrisEnvelope(credentials, envelope)).rejects.toBeInstanceOf(TigrisError);
+    await expect(putTigrisEnvelope(credentials, envelope, { create: true })).rejects.toBeInstanceOf(TigrisError);
     expect(consoleError).not.toHaveBeenCalled();
   });
 });

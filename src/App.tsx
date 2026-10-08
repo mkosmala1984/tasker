@@ -40,6 +40,9 @@ function MenuIcon({ name }: { name: MenuIconName }) {
 
 export default function App({ now = new Date() }: Props) {
   const state = useTaskerStore((store) => store.state);
+  const ready = useTaskerStore((store) => store.ready);
+  const conflicts = useTaskerStore((store) => store.conflicts);
+  const resolveConflict = useTaskerStore((store) => store.resolveConflict);
   const storageError = useTaskerStore((store) => store.storageError);
   const historyFilters = useTaskerStore((store) => store.historyFilters);
   const setHistoryFilters = useTaskerStore((store) => store.setHistoryFilters);
@@ -58,11 +61,6 @@ export default function App({ now = new Date() }: Props) {
   const movePriority = useTaskerStore((store) => store.movePriority);
   const previewImport = useTaskerStore((store) => store.previewImport);
   const applyImport = useTaskerStore((store) => store.applyImport);
-  const jsonHostingCredentials = useTaskerStore((store) => store.jsonHostingCredentials);
-  const jsonHostingStatus = useTaskerStore((store) => store.jsonHostingStatus);
-  const configureJsonHosting = useTaskerStore((store) => store.configureJsonHosting);
-  const createJsonHostingDocument = useTaskerStore((store) => store.createJsonHostingDocument);
-  const disconnectJsonHosting = useTaskerStore((store) => store.disconnectJsonHosting);
   const tigrisCredentials = useTaskerStore((store) => store.tigrisCredentials);
   const tigrisStatus = useTaskerStore((store) => store.tigrisStatus);
   const configureTigris = useTaskerStore((store) => store.configureTigris);
@@ -81,6 +79,7 @@ export default function App({ now = new Date() }: Props) {
     startSync();
     return stopSync;
   }, [startSync, stopSync]);
+  if (!ready) return <Container><Alert color={storageError ? "red" : "blue"} title="Otwieranie danych">{storageError ?? "Poczekaj na otwarcie lokalnej bazy danych."}</Alert></Container>;
 
   function handleCreateTask() {
     openTaskCreate();
@@ -95,15 +94,15 @@ export default function App({ now = new Date() }: Props) {
   }
 
   function handleDeactivateTask(taskId: string) {
-    deactivateTask(taskId, now);
+    void deactivateTask(taskId, now).catch(() => undefined);
   }
 
   function handleCompleteTask(taskId: string, scheduledDate: string) {
-    completeTask(taskId, scheduledDate, now);
+    void completeTask(taskId, scheduledDate, now).catch(() => undefined);
   }
 
   function handlePostponeTaskToDate(taskId: string, scheduledDate: string, toDate: string) {
-    postponeTask(taskId, scheduledDate, toDate, now);
+    void postponeTask(taskId, scheduledDate, toDate, now).catch(() => undefined);
   }
 
   return (
@@ -127,6 +126,9 @@ export default function App({ now = new Date() }: Props) {
             </Button>
           ))}
         </nav>
+        {!ready ? <Alert title="Otwieranie danych">Poczekaj na otwarcie lokalnej bazy danych.</Alert> : null}
+        {storageError ? <Alert color="red" title="Problem z lokalnymi danymi">{storageError}</Alert> : null}
+        {conflicts.length && view !== "data" ? <Alert color="yellow" title="Konflikt zmian"><Button onClick={() => setView("data")}>Rozstrzygnij zmiany ({conflicts.length})</Button></Alert> : null}
 
         {view === "today" ? (
           <Paper className="today-surface" withBorder p="lg" radius="md">
@@ -197,14 +199,11 @@ export default function App({ now = new Date() }: Props) {
         {view === "data" ? (
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <DataTransferView
+              conflicts={conflicts}
+              onResolveConflict={resolveConflict}
               state={state}
               onPreviewImport={previewImport}
               onApplyImport={applyImport}
-              credentials={jsonHostingCredentials}
-              status={jsonHostingStatus}
-              onConfigureJsonHosting={configureJsonHosting}
-              onCreateJsonHostingDocument={createJsonHostingDocument}
-              onDisconnectJsonHosting={disconnectJsonHosting}
               tigrisCredentials={tigrisCredentials}
               tigrisStatus={tigrisStatus}
               onConfigureTigris={configureTigris}

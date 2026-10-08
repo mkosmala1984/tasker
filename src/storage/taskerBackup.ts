@@ -1,4 +1,5 @@
 import type { AppState } from "../domain/types";
+import { isValidState } from "../domain/stateValidation";
 
 export type ExportPayload = {
   version: 2;
@@ -17,6 +18,7 @@ export type ImportSummary = {
 };
 
 export type ImportPreview = {
+  localVersion?: number;
   payload: ExportPayload;
   state: AppState;
   summary: ImportSummary;
@@ -24,23 +26,6 @@ export type ImportPreview = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function hasArray(value: Record<string, unknown>, key: string): boolean {
-  return Array.isArray(value[key]);
-}
-
-function isAppState(value: unknown): value is AppState {
-  return (
-    isRecord(value) &&
-    hasArray(value, "tasks") &&
-    hasArray(value, "categories") &&
-    hasArray(value, "assignees") &&
-    hasArray(value, "taskTypes") &&
-    hasArray(value, "priorities") &&
-    hasArray(value, "completions") &&
-    hasArray(value, "postponements")
-  );
 }
 
 export function createExportPayload(state: AppState, exportedAt: string): ExportPayload {
@@ -67,7 +52,7 @@ export function previewImport(raw: string): ImportPreview {
   if (parsed.version !== 2) {
     throw new Error("Nieobslugiwana wersja kopii danych.");
   }
-  if (typeof parsed.exportedAt !== "string" || !isAppState(parsed.state)) {
+  if (typeof parsed.exportedAt !== "string" || !isValidState(parsed.state)) {
     throw new Error("Plik importu nie zawiera kompletnych danych Taskera.");
   }
 

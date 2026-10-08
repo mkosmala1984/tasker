@@ -1,5 +1,5 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { parseRemoteEnvelope, type RemoteEnvelope } from "../state/remoteSync";
+import { parseRemoteEnvelope, PermanentSyncError, RemoteConflictError, RemoteMissingError, type RemoteDocument, type RemoteEnvelope, type WriteCondition } from "./syncEnvelope";
 
 export const TIGRIS_CREDENTIALS_KEY = "tasker:tigris:v1";
 
@@ -17,7 +17,7 @@ export class TigrisError extends Error {
   }
 }
 
-export class TigrisNotFoundError extends TigrisError {
+export class TigrisNotFoundError extends RemoteMissingError {
   constructor() {
     super("Nie znaleziono danych w Tigris.");
     this.name = "TigrisNotFoundError";
@@ -79,7 +79,7 @@ export function clearTigrisCredentials(storage: Storage = window.localStorage): 
   storage.removeItem(TIGRIS_CREDENTIALS_KEY);
 }
 
-export async function getTigrisEnvelope(credentials: TigrisCredentials): Promise<RemoteEnvelope> {
+export async function getTigrisEnvelope(credentials: TigrisCredentials): Promise<RemoteDocument> {
   const response = await (async () => {
     try {
       return await createClient(credentials).send(new GetObjectCommand({
@@ -90,6 +90,7 @@ export async function getTigrisEnvelope(credentials: TigrisCredentials): Promise
       if (isNotFoundError(error)) {
         throw new TigrisNotFoundError();
       }
+      if (isRecord(error) && isRecord(error.$metadata) && [401, 403].includes(Number(error.$metadata.httpStatusCode))) throw new PermanentSyncError("Brak uprawnień do odczytu Tigris.");
       throw new TigrisError("Nie mozna pobrac danych z Tigris.");
     }
   })();
@@ -99,21 +100,26 @@ export async function getTigrisEnvelope(credentials: TigrisCredentials): Promise
     if (body === undefined) {
       throw new Error("Missing response body");
     }
-    return parseRemoteEnvelope(JSON.parse(body));
+    if (!response.ETag) throw new PermanentSyncError("Brak ETag w odpowiedzi Tigris. Sprawdź CORS i ExposeHeaders.");
+    return { envelope: parseRemoteEnvelope(JSON.parse(body)), etag: response.ETag };
   } catch {
-    throw new TigrisError("Nie mozna odczytac danych z Tigris.");
+    throw new PermanentSyncError("Nie mozna odczytac danych z Tigris. Sprawdź format i dostępność ETag w CORS.");
   }
 }
 
-export async function putTigrisEnvelope(credentials: TigrisCredentials, envelope: RemoteEnvelope): Promise<void> {
+export async function putTigrisEnvelope(credentials: TigrisCredentials, envelope: RemoteEnvelope, condition: WriteCondition): Promise<void> {
+  if (!condition || (!("create" in condition) && !("etag" in condition && condition.etag))) throw new PermanentSyncError("Zapis Tigris wymaga warunku wersji.");
   try {
     await createClient(credentials).send(new PutObjectCommand({
       Bucket: credentials.bucket,
       Key: credentials.objectKey,
       Body: JSON.stringify(envelope),
-      ContentType: "application/json"
+      ContentType: "application/json",
+      ...("create" in condition ? { IfNoneMatch: "*" } : { IfMatch: condition.etag })
     }));
-  } catch {
+  } catch (error) {
+    if (isRecord(error) && (error.name === "PreconditionFailed" || error.name === "ConditionalRequestConflict" || (isRecord(error.$metadata) && [409, 412].includes(Number(error.$metadata.httpStatusCode))))) throw new RemoteConflictError();
+    if (isRecord(error) && isRecord(error.$metadata) && [400, 401, 403, 413].includes(Number(error.$metadata.httpStatusCode))) throw new PermanentSyncError("Zapis Tigris został odrzucony. Sprawdź uprawnienia, warunki zapisu i rozmiar dokumentu.");
     throw new TigrisError("Nie mozna zapisac danych w Tigris.");
   }
 }

@@ -1,279 +1,242 @@
-import type { AppState } from "../domain/types";
-
-export const SAVE_DEBOUNCE_MS = 1_000;
-export const POLL_INTERVAL_MS = 60_000;
-
-export type RemoteEnvelope = {
-  version: 1;
-  revision: number;
-  updatedAt: string;
-  state: AppState;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isArrayProperty(value: Record<string, unknown>, key: string): boolean {
-  return Array.isArray(value[key]);
-}
-
-function isAppState(value: unknown): value is AppState {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    isArrayProperty(value, "tasks") &&
-    isArrayProperty(value, "categories") &&
-    isArrayProperty(value, "assignees") &&
-    isArrayProperty(value, "taskTypes") &&
-    isArrayProperty(value, "priorities") &&
-    isArrayProperty(value, "completions") &&
-    isArrayProperty(value, "postponements")
-  );
-}
-
-function isParseableIsoDate(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T/.test(value) &&
-    !Number.isNaN(Date.parse(value))
-  );
-}
-
-export function parseRemoteEnvelope(value: unknown): RemoteEnvelope {
-  if (
-    !isRecord(value) ||
-    value.version !== 1 ||
-    typeof value.revision !== "number" ||
-    !Number.isInteger(value.revision) ||
-    value.revision < 0 ||
-    !isParseableIsoDate(value.updatedAt) ||
-    !isAppState(value.state)
-  ) {
-    throw new Error("Niepoprawna koperta danych zdalnych.");
-  }
-
-  return value as RemoteEnvelope;
-}
-
+import { mergeOperations } from "../domain/syncMerge";
+import { isValidState } from "../domain/stateValidation";
+import { SyncJournal, type JournalRecord } from "../storage/syncJournal";
+import {
+  PermanentSyncError,
+  RemoteConflictError,
+  RemoteMissingError,
+  type RemoteDocument,
+  type RemoteEnvelope,
+  type WriteCondition,
+} from "../storage/syncEnvelope";
+export { parseRemoteEnvelope } from "../storage/syncEnvelope";
+export type { RemoteEnvelope } from "../storage/syncEnvelope";
 export type RemoteSyncStatus =
-  | { kind: "disconnected" }
-  | { kind: "checking" }
-  | { kind: "syncing" }
+  | {
+      kind:
+        | "disconnected"
+        | "checking"
+        | "syncing"
+        | "local"
+        | "pending"
+        | "conflict";
+    }
   | { kind: "synced"; at: string }
-  | { kind: "remote-loaded"; at: string }
   | { kind: "error"; message: string };
-
 export type RemoteSyncStorage<C> = {
-  getRemoteEnvelope(credentials: C): Promise<RemoteEnvelope>;
-  putRemoteEnvelope(credentials: C, envelope: RemoteEnvelope): Promise<void>;
+  getRemoteEnvelope: (credentials: C) => Promise<RemoteDocument>;
+  putRemoteEnvelope: (
+    credentials: C,
+    envelope: RemoteEnvelope,
+    condition: WriteCondition,
+  ) => Promise<void>;
 };
-
 export type RemoteSyncController<C> = {
-  start(): void;
-  stop(): void;
-  setCredentials(credentials: C | undefined): void;
-  scheduleSave(state: AppState): void;
-  checkForRemoteUpdate(): void;
+  start: () => void;
+  stop: () => void;
+  setCredentials: (credentials?: C, dataset?: string) => void;
+  scheduleSave: () => void;
+  checkForRemoteUpdate: () => void;
+  syncNow: () => Promise<void>;
 };
-
-export type RemoteSyncOptions<C> = {
+type Options<C> = {
   credentials?: C;
+  dataset: string;
+  journal: Pick<SyncJournal, "read" | "acceptRemote">;
   storage: RemoteSyncStorage<C>;
-  getLocalSnapshot(): { state: AppState; observedRevision: number; updatedAt: string };
-  replaceLocal(envelope: RemoteEnvelope): void;
-  confirmLocalSave(envelope: RemoteEnvelope): void;
-  setStatus(status: RemoteSyncStatus): void;
+  setStatus: (status: RemoteSyncStatus) => void;
+  onChange: (record: JournalRecord) => void;
 };
-
-export function isRemoteNewer(remote: RemoteEnvelope, observedRevision: number, updatedAt: string): boolean {
-  return remote.revision > observedRevision || (remote.revision === observedRevision && remote.updatedAt > updatedAt);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Nie mozna zsynchronizowac danych zdalnych.";
-}
-
-export function createRemoteSyncController<C>(options: RemoteSyncOptions<C>): RemoteSyncController<C> {
-  let credentials = options.credentials;
-  let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
-  let pollingInterval: ReturnType<typeof setInterval> | undefined;
-  let inFlight: Promise<void> | undefined;
-  let pendingState: AppState | undefined;
-  let started = false;
-  let credentialGeneration = 0;
-
-  function clearDebounce(): void {
-    if (debounceTimeout !== undefined) {
-      clearTimeout(debounceTimeout);
-      debounceTimeout = undefined;
-    }
-  }
-
-  function clearPolling(): void {
-    if (pollingInterval !== undefined) {
-      clearInterval(pollingInterval);
-      pollingInterval = undefined;
-    }
-  }
-
-  function areCredentialsCurrent(activeCredentials: C, activeGeneration: number): boolean {
-    return credentials === activeCredentials && credentialGeneration === activeGeneration;
-  }
-
-  function replaceWithRemote(remote: RemoteEnvelope): void {
-    pendingState = undefined;
-    clearDebounce();
-    options.replaceLocal(remote);
-    options.setStatus({ kind: "remote-loaded", at: remote.updatedAt });
-  }
-
-  function beginRequest(action: () => Promise<void>): void {
-    const request = action();
-    inFlight = request;
-    void request.finally(() => {
-      if (inFlight === request) {
-        inFlight = undefined;
-      }
-    });
-  }
-
-  function checkForRemoteUpdate(): void {
-    if (credentials === undefined || inFlight !== undefined) {
-      return;
-    }
-
-    const activeCredentials = credentials;
-    const activeGeneration = credentialGeneration;
-    beginRequest(async () => {
-      options.setStatus({ kind: "checking" });
-      try {
-        const remote = await options.storage.getRemoteEnvelope(activeCredentials);
-        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
+export function createRemoteSyncController<C>(
+  options: Options<C>,
+): RemoteSyncController<C> {
+  let credentials = options.credentials,
+    dataset = options.dataset,
+    generation = 0,
+    started = false,
+    failures = 0;
+  let inFlight: Promise<void> | undefined,
+    timer: ReturnType<typeof setTimeout> | undefined,
+    poll: ReturnType<typeof setInterval> | undefined,
+    blockedPermanent = false;
+  const clear = () => {
+    clearTimeout(timer);
+    timer = undefined;
+  };
+  const schedule = (delay: number) => {
+    clear();
+    if (started && credentials && !blockedPermanent)
+      timer = setTimeout(() => {
+        void syncNow();
+      }, delay);
+  };
+  async function run() {
+    if (!credentials) return;
+    const activeCredentials = credentials,
+      activeDataset = dataset,
+      activeGeneration = generation;
+    const active = () => generation === activeGeneration;
+    options.setStatus({ kind: "checking" });
+    try {
+      for (let attempt = 0; attempt < 5 && active(); attempt++) {
+        let document: RemoteDocument | undefined;
+        try {
+          document = await options.storage.getRemoteEnvelope(activeCredentials);
+        } catch (error) {
+          if (!(error instanceof RemoteMissingError)) throw error;
+        }
+        if (!active()) return;
+        let record = await options.journal.read(activeDataset);
+        if (document)
+          record = await options.journal.acceptRemote(activeDataset, document);
+        else if (record.remote)
+          throw new PermanentSyncError(
+            "Zdalny obiekt został usunięty. Dane lokalne zachowano; wybierz nowy obiekt.",
+          );
+        if (!active()) return;
+        options.onChange(record);
+        const merged = mergeOperations(record.baseline, record.operations);
+        const sending = merged.appliedIds;
+        const migrationNeeded = document?.envelope.version === 1;
+        if (!sending.length && document && !migrationNeeded) {
+          options.setStatus(
+            record.conflicts.length
+              ? { kind: "conflict" }
+              : record.operations.length
+                ? { kind: "pending" }
+                : { kind: "synced", at: document.envelope.updatedAt },
+          );
+          failures = 0;
           return;
         }
-        const local = options.getLocalSnapshot();
-        if (isRemoteNewer(remote, local.observedRevision, local.updatedAt)) {
-          replaceWithRemote(remote);
-          return;
-        }
-        options.setStatus({ kind: "synced", at: remote.updatedAt });
-      } catch (error) {
-        if (areCredentialsCurrent(activeCredentials, activeGeneration)) {
-          options.setStatus({ kind: "error", message: errorMessage(error) });
-        }
-      }
-    });
-  }
-
-  function scheduleDebounce(): void {
-    clearDebounce();
-    debounceTimeout = setTimeout(() => {
-      debounceTimeout = undefined;
-      savePendingState();
-    }, SAVE_DEBOUNCE_MS);
-  }
-
-  function savePendingState(): void {
-    if (pendingState === undefined || credentials === undefined) {
-      return;
-    }
-    if (inFlight !== undefined) {
-      scheduleDebounce();
-      return;
-    }
-
-    const stateToSave = pendingState;
-    const activeCredentials = credentials;
-    const activeGeneration = credentialGeneration;
-    beginRequest(async () => {
-      options.setStatus({ kind: "checking" });
-      try {
-        const remote = await options.storage.getRemoteEnvelope(activeCredentials);
-        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
-          return;
-        }
-        const local = options.getLocalSnapshot();
-        if (isRemoteNewer(remote, local.observedRevision, local.updatedAt)) {
-          replaceWithRemote(remote);
-          return;
-        }
-
-        const nextEnvelope: RemoteEnvelope = {
-          version: 1,
-          revision: remote.revision + 1,
+        const state = merged.state;
+        if (!isValidState(state))
+          throw new PermanentSyncError(
+            "Połączenie zmian utworzyłoby niepoprawne odwołania. Zachowano dziennik i przerwano zapis.",
+          );
+        const envelope: RemoteEnvelope = {
+          version: 2,
+          revision: (document?.envelope.revision ?? 0) + 1,
           updatedAt: new Date().toISOString(),
-          state: stateToSave
+          state,
+          appliedOperationIds: [
+            ...new Set([
+              ...(document?.envelope.appliedOperationIds ?? []),
+              ...sending,
+            ]),
+          ],
         };
         options.setStatus({ kind: "syncing" });
-        await options.storage.putRemoteEnvelope(activeCredentials, nextEnvelope);
-        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
-          return;
+        try {
+          await options.storage.putRemoteEnvelope(
+            activeCredentials,
+            envelope,
+            document ? { etag: document.etag } : { create: true },
+          );
+        } catch (error) {
+          if (error instanceof RemoteConflictError) continue;
+          throw error;
         }
-
-        const storedEnvelope = await options.storage.getRemoteEnvelope(activeCredentials);
-        if (!areCredentialsCurrent(activeCredentials, activeGeneration)) {
-          return;
-        }
-        if (isRemoteNewer(storedEnvelope, nextEnvelope.revision, nextEnvelope.updatedAt)) {
-          replaceWithRemote(storedEnvelope);
-          return;
-        }
-        if (pendingState === stateToSave) {
-          pendingState = undefined;
-        }
-        options.confirmLocalSave(nextEnvelope);
-        options.setStatus({ kind: "synced", at: nextEnvelope.updatedAt });
-      } catch (error) {
-        if (areCredentialsCurrent(activeCredentials, activeGeneration)) {
-          options.setStatus({ kind: "error", message: errorMessage(error) });
-        }
+        if (!active()) return;
+        // Read the server version and its acknowledgements. A later writer may already have advanced it.
+        const confirmed =
+          await options.storage.getRemoteEnvelope(activeCredentials);
+        if (!active()) return;
+        if (
+          confirmed.envelope.revision < envelope.revision ||
+          sending.some(
+            (id) => !confirmed.envelope.appliedOperationIds?.includes(id),
+          )
+        )
+          throw new Error(
+            "Usługa nie potwierdziła wysłanych operacji. Zmiany pozostają w kolejce.",
+          );
+        record = await options.journal.acceptRemote(
+          activeDataset,
+          confirmed,
+          !document,
+        );
+        if (!active()) return;
+        options.onChange(record);
+        failures = 0;
+        options.setStatus(
+          record.conflicts.length
+            ? { kind: "conflict" }
+            : record.operations.length
+              ? { kind: "pending" }
+              : { kind: "synced", at: confirmed.envelope.updatedAt },
+        );
+        if (record.operations.length && !record.conflicts.length)
+          schedule(1000);
+        return;
       }
+      if (active()) {
+        options.setStatus({ kind: "pending" });
+        schedule(1000 + Math.random() * 1000);
+      }
+    } catch (error) {
+      if (!active()) return;
+      options.setStatus({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Nie mozna zsynchronizowac danych zdalnych.",
+      });
+      if (error instanceof PermanentSyncError) blockedPermanent = true;
+      else
+        schedule(
+          Math.min(
+            60000,
+            1000 * 2 ** Math.min(failures++, 6) + Math.random() * 500,
+          ),
+        );
+    }
+  }
+  function syncNow(): Promise<void> {
+    if (inFlight) {
+      schedule(1000);
+      return inFlight;
+    }
+    clear();
+    const promise = run().finally(() => {
+      if (inFlight === promise) inFlight = undefined;
     });
+    inFlight = promise;
+    return promise;
   }
-
-  function start(): void {
-    if (started) {
-      return;
-    }
-    started = true;
-    if (credentials === undefined) {
-      options.setStatus({ kind: "disconnected" });
-      return;
-    }
-    pollingInterval = setInterval(checkForRemoteUpdate, POLL_INTERVAL_MS);
-  }
-
-  function stop(): void {
-    started = false;
-    clearDebounce();
-    clearPolling();
-  }
-
-  function setCredentials(nextCredentials: C | undefined): void {
-    credentialGeneration += 1;
-    credentials = nextCredentials;
-    pendingState = undefined;
-    clearDebounce();
-    clearPolling();
-    if (credentials === undefined) {
-      options.setStatus({ kind: "disconnected" });
-      return;
-    }
-    if (started) {
-      pollingInterval = setInterval(checkForRemoteUpdate, POLL_INTERVAL_MS);
-    }
-  }
-
-  function scheduleSave(state: AppState): void {
-    if (credentials === undefined) {
-      return;
-    }
-    pendingState = state;
-    scheduleDebounce();
-  }
-
-  return { start, stop, setCredentials, scheduleSave, checkForRemoteUpdate };
+  const wake = () => {
+    if (started && !blockedPermanent) void syncNow();
+  };
+  return {
+    syncNow,
+    start() {
+      if (started) return;
+      started = true;
+      poll = setInterval(wake, 60000);
+      window.addEventListener("online", wake);
+      window.addEventListener("focus", wake);
+    },
+    stop() {
+      started = false;
+      generation++;
+      clear();
+      clearInterval(poll);
+      window.removeEventListener("online", wake);
+      window.removeEventListener("focus", wake);
+    },
+    setCredentials(next, nextDataset = dataset) {
+      generation++;
+      credentials = next;
+      dataset = nextDataset;
+      blockedPermanent = false;
+      failures = 0;
+      clear();
+    },
+    scheduleSave() {
+      options.setStatus(credentials ? { kind: "pending" } : { kind: "local" });
+      schedule(1000);
+    },
+    checkForRemoteUpdate: wake,
+  };
 }

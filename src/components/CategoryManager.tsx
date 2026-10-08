@@ -5,9 +5,9 @@ import type { CategoryInput } from "../domain/configuration";
 
 type Props = {
   categories: Category[];
-  onAdd: (input: CategoryInput) => void;
-  onUpdate: (categoryId: string, input: CategoryInput) => void;
-  onDeactivate: (categoryId: string) => void;
+  onAdd: (input: CategoryInput) => void | Promise<void>;
+  onUpdate: (categoryId: string, input: CategoryInput) => void | Promise<void>;
+  onDeactivate: (categoryId: string) => void | Promise<void>;
 };
 
 export function CategoryManager({ categories, onAdd, onUpdate, onDeactivate }: Props) {
@@ -18,9 +18,9 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDeactivate }: P
   const [editColor, setEditColor] = useState("#228be6");
   const [error, setError] = useState<string | undefined>();
 
-  function submitAdd() {
+  async function submitAdd() {
     try {
-      onAdd({ name, color });
+      await onAdd({ name, color });
       setName("");
       setColor("#228be6");
       setError(undefined);
@@ -36,9 +36,9 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDeactivate }: P
     setError(undefined);
   }
 
-  function submitEdit(categoryId: string) {
+  async function submitEdit(categoryId: string) {
     try {
-      onUpdate(categoryId, { name: editName, color: editColor });
+      await onUpdate(categoryId, { name: editName, color: editColor });
       setEditingId(undefined);
       setError(undefined);
     } catch (caught) {
@@ -99,7 +99,7 @@ export function CategoryManager({ categories, onAdd, onUpdate, onDeactivate }: P
                       Edytuj
                     </Button>
                   )}
-                  <Button type="button" variant="default" onClick={() => onDeactivate(category.id)}>
+                  <Button type="button" variant="default" onClick={() => void Promise.resolve(onDeactivate(category.id)).catch(e => setError(e.message))}>
                     Dezaktywuj
                   </Button>
                 </Group>

@@ -20,6 +20,11 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe("taskerStorage", () => {
+  it("rejects malformed entities without exposing them to rendering", () => {
+    const state = { ...createEmptyState(), tasks: [null] };
+    const result = loadState(memoryStorage({ [STORAGE_KEY]: JSON.stringify(state) }));
+    expect(result.error).toBeDefined(); expect(result.state.tasks).toEqual([]);
+  });
   it("returns empty state when storage has no data", () => {
     const result = loadState(memoryStorage());
 

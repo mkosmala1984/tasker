@@ -1,4 +1,5 @@
 import { Alert, Button, Group, Stack, Title } from "@mantine/core";
+import { useState } from "react";
 import type { AppState, TaskDraft } from "../../domain/types";
 import { TaskForm } from "../TaskForm";
 
@@ -7,13 +8,14 @@ type Props = {
   today: string;
   initialDate?: string;
   taskId?: string | null;
-  onCreate: (draft: TaskDraft) => void;
-  onUpdate: (taskId: string, draft: TaskDraft) => void;
+  onCreate: (draft: TaskDraft) => void | Promise<void>;
+  onUpdate: (taskId: string, draft: TaskDraft, base: AppState) => void | Promise<void>;
   onCancel: () => void;
 };
 
 export function TaskEditorView({ state, today, initialDate, taskId, onCreate, onUpdate, onCancel }: Props) {
-  const task = taskId ? state.tasks.find((item) => item.id === taskId) : undefined;
+  const [editingBase] = useState(() => structuredClone(state));
+  const task = taskId ? editingBase.tasks.find((item) => item.id === taskId) : undefined;
   const createDate = initialDate ?? today;
 
   if (taskId && !task) {
@@ -38,16 +40,16 @@ export function TaskEditorView({ state, today, initialDate, taskId, onCreate, on
         </Button>
       </Group>
       <TaskForm
-        state={state}
+        state={editingBase}
         today={task ? today : createDate}
         task={task}
         submitLabel={task ? "Zapisz zmiany" : "Zapisz zadanie"}
         onCancel={onCancel}
-        onSubmit={(draft) => {
+        onSubmit={async (draft) => {
           if (task) {
-            onUpdate(task.id, draft);
+            await onUpdate(task.id, draft, editingBase);
           } else {
-            onCreate(draft);
+            await onCreate(draft);
           }
         }}
       />

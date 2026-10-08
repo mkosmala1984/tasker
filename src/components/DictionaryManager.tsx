@@ -15,10 +15,10 @@ type Props = {
   colorLabel?: string;
   addLabel: string;
   items: DictionaryItem[];
-  onAdd: (input: { name: string; color?: string }) => void;
-  onUpdate: (id: string, input: { name: string; color?: string }) => void;
-  onSetActive: (id: string, active: boolean) => void;
-  onMove: (id: string, direction: "up" | "down") => void;
+  onAdd: (input: { name: string; color?: string }) => void | Promise<void>;
+  onUpdate: (id: string, input: { name: string; color?: string }) => void | Promise<void>;
+  onSetActive: (id: string, active: boolean) => void | Promise<void>;
+  onMove: (id: string, direction: "up" | "down") => void | Promise<void>;
 };
 
 export function DictionaryManager({ title, nameLabel, colorLabel, addLabel, items, onAdd, onUpdate, onSetActive, onMove }: Props) {
@@ -29,9 +29,9 @@ export function DictionaryManager({ title, nameLabel, colorLabel, addLabel, item
   const [editColor, setEditColor] = useState("#868e96");
   const [error, setError] = useState<string | undefined>();
 
-  function submitAdd() {
+  async function submitAdd() {
     try {
-      onAdd({ name, color: colorLabel ? color : undefined });
+      await onAdd({ name, color: colorLabel ? color : undefined });
       setName("");
       setColor("#868e96");
       setError(undefined);
@@ -47,9 +47,9 @@ export function DictionaryManager({ title, nameLabel, colorLabel, addLabel, item
     setError(undefined);
   }
 
-  function submitEdit(item: DictionaryItem) {
+  async function submitEdit(item: DictionaryItem) {
     try {
-      onUpdate(item.id, { name: editName, color: colorLabel ? editColor : undefined });
+      await onUpdate(item.id, { name: editName, color: colorLabel ? editColor : undefined });
       setEditingId(undefined);
       setError(undefined);
     } catch (caught) {
@@ -98,15 +98,15 @@ export function DictionaryManager({ title, nameLabel, colorLabel, addLabel, item
                 </Table.Td>
               ) : null}
               <Table.Td>
-                <Checkbox checked={item.active} onChange={(event) => onSetActive(item.id, event.currentTarget.checked)} aria-label={`Aktywny ${item.name}`} />
+                <Checkbox checked={item.active} onChange={(event) => void Promise.resolve(onSetActive(item.id, event.currentTarget.checked)).catch(e => setError(e.message))} aria-label={`Aktywny ${item.name}`} />
               </Table.Td>
               <Table.Td>{item.order + 1}</Table.Td>
               <Table.Td>
                 <Group gap="xs">
-                  <Button type="button" variant="default" onClick={() => onMove(item.id, "up")}>
+                  <Button type="button" variant="default" onClick={() => void Promise.resolve(onMove(item.id, "up")).catch(e => setError(e.message))}>
                     W gore
                   </Button>
-                  <Button type="button" variant="default" onClick={() => onMove(item.id, "down")}>
+                  <Button type="button" variant="default" onClick={() => void Promise.resolve(onMove(item.id, "down")).catch(e => setError(e.message))}>
                     W dol
                   </Button>
                   {editingId === item.id ? (
