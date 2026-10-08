@@ -1,4 +1,4 @@
-import { Button, Paper, Stack, TextInput } from "@mantine/core";
+import { Button, Popover, Stack, TextInput } from "@mantine/core";
 import { useState } from "react";
 import { addDays } from "../../domain/dates";
 import type { TodayTask } from "../../domain/types";
@@ -22,12 +22,14 @@ export function TodayPostponeMenu({ item, today, onPostponeToDate }: Props) {
   }
 
   return (
-    <Stack className="today-postpone-menu" gap="xs" align="flex-end">
+    <div className="today-postpone-menu">
+      <Popover opened={menuOpen} onChange={setMenuOpen} position="bottom-end" withinPortal trapFocus returnFocus radius="md">
+      <Popover.Target>
       <Button type="button" variant="default" aria-label={`Odloz: ${item.task.title}`} onClick={() => setMenuOpen((value) => !value)}>
         Odloz
       </Button>
-      {menuOpen ? (
-        <Paper className="today-postpone-panel" withBorder radius="md" p="xs">
+      </Popover.Target>
+        <Popover.Dropdown className="today-postpone-panel" p="xs">
           <Stack gap="xs">
             <Button type="button" variant="subtle" onClick={() => handlePostpone(addDays(today, 1))}>
               Jutro
@@ -59,8 +61,8 @@ export function TodayPostponeMenu({ item, today, onPostponeToDate }: Props) {
               </Stack>
             ) : null}
           </Stack>
-        </Paper>
-      ) : null}
-    </Stack>
+        </Popover.Dropdown>
+      </Popover>
+    </div>
   );
 }

@@ -47,10 +47,11 @@ function renderRow(todayTask: TodayTask) {
 }
 
 describe("TodayTaskRow", () => {
-  it("shows the latest completion date and total number of completions", () => {
+  it("shows the latest completion date without the count when details are collapsed", () => {
     renderRow(item({ lastCompletedDate: "2026-07-04", completionCount: 2 }));
 
-    expect(screen.getByText("Ostatnio wykonane: 2026-07-04 · Wykonano: 2 razy")).toBeInTheDocument();
+    expect(screen.getByText("Ostatnio wykonane: 2026-07-04")).toBeInTheDocument();
+    expect(screen.queryByText(/Wykonano/)).not.toBeInTheDocument();
   });
 
   it("shows that a task has not been completed yet", () => {

@@ -46,7 +46,7 @@ export function TodayViewShell(props: TodayViewShellProps) {
   }
 
   return (
-    <Stack gap="lg">
+    <Stack className="today-view" gap="lg" data-today-layout={layout}>
       {/*<TodaySummaryHeader dateLabel={props.dateLabel} activeCount={props.activeTasks.length} />*/}
       <Group className="today-layout-switch" justify="flex-end" gap={0} role="group" aria-label="Układ zadań">
         <Button type="button" variant={layout === "columns" ? "filled" : "default"} aria-pressed={layout === "columns"} onClick={() => changeLayout("columns")}>
@@ -56,36 +56,40 @@ export function TodayViewShell(props: TodayViewShellProps) {
           Lista
         </Button>
       </Group>
-      {layout === "columns" && props.activeTasks.length > 0 ? (
-        <TodayActiveColumns
-          today={props.today}
-          activeTasks={props.activeTasks}
-          categories={props.categories}
-          expandedTaskIds={expandedTaskIds}
-          onExpandedTaskIdsChange={setExpandedTaskIds}
-          onComplete={props.onComplete}
-          onPostponeToDate={props.onPostponeToDate}
-          onEdit={props.onEdit}
-          onDeactivate={props.onDeactivate}
-        />
-      ) : (
-        <TodayActiveList
-          today={props.today}
-          activeTasks={props.activeTasks}
-          expandedTaskIds={expandedTaskIds}
-          onExpandedTaskIdsChange={setExpandedTaskIds}
-          onAdd={props.onAdd}
-          onComplete={props.onComplete}
-          onPostponeToDate={props.onPostponeToDate}
-          onEdit={props.onEdit}
-          onDeactivate={props.onDeactivate}
-        />
-      )}
-      <TodayCompletedSection
-        tasks={props.completedToday}
-        open={completedOpen}
-        onToggle={() => setCompletedOpen((value) => !value)}
-      />
+      <div className="today-scroll-area" role="region" aria-label="Przewijany widok zadań" tabIndex={0}>
+        <Stack gap="lg">
+          {layout === "columns" && props.activeTasks.length > 0 ? (
+            <TodayActiveColumns
+              today={props.today}
+              activeTasks={props.activeTasks}
+              categories={props.categories}
+              expandedTaskIds={expandedTaskIds}
+              onExpandedTaskIdsChange={setExpandedTaskIds}
+              onComplete={props.onComplete}
+              onPostponeToDate={props.onPostponeToDate}
+              onEdit={props.onEdit}
+              onDeactivate={props.onDeactivate}
+            />
+          ) : (
+            <TodayActiveList
+              today={props.today}
+              activeTasks={props.activeTasks}
+              expandedTaskIds={expandedTaskIds}
+              onExpandedTaskIdsChange={setExpandedTaskIds}
+              onAdd={props.onAdd}
+              onComplete={props.onComplete}
+              onPostponeToDate={props.onPostponeToDate}
+              onEdit={props.onEdit}
+              onDeactivate={props.onDeactivate}
+            />
+          )}
+          <TodayCompletedSection
+            tasks={props.completedToday}
+            open={completedOpen}
+            onToggle={() => setCompletedOpen((value) => !value)}
+          />
+        </Stack>
+      </div>
     </Stack>
   );
 }

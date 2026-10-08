@@ -1,4 +1,4 @@
-import { Grid, Paper, Text } from "@mantine/core";
+import { Badge, Grid, Paper, Text } from "@mantine/core";
 import type { TaskSchedule, TodayTask } from "../../domain/types";
 
 type Props = {
@@ -21,6 +21,12 @@ export function TodayTaskDetailsPanel({ item }: Props) {
     <Paper className="today-task-details" withBorder radius="md" p="md">
       <Grid>
         <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Text className="today-task-detail-label" fw={500}>Termin</Text>
+          <Badge className={item.isOverdue ? "today-status-overdue" : "today-status-current"} variant="light">
+            {item.scheduledDate}
+          </Badge>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
           <Text className="today-task-detail-label" fw={500}>Kategoria</Text>
           <Text className="today-task-detail-value">{item.category.name}</Text>
         </Grid.Col>
@@ -39,6 +45,10 @@ export function TodayTaskDetailsPanel({ item }: Props) {
         <Grid.Col span={{ base: 12, sm: 6 }}>
           <Text className="today-task-detail-label" fw={500}>Częstotliwość</Text>
           <Text className="today-task-detail-value">{getFrequencyLabel(item.task.schedule)}</Text>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Text className="today-task-detail-label" fw={500}>Wykonano</Text>
+          <Text className="today-task-detail-value">{item.completionCount} {item.completionCount === 1 ? "raz" : "razy"}</Text>
         </Grid.Col>
       </Grid>
     </Paper>

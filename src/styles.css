@@ -39,6 +39,15 @@ button, input, select { font: inherit; }
 :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .app-shell { min-height: 100vh; }
 .app-frame { max-width: 1440px; margin: 0 auto; padding: var(--space-8); }
+.app-frame:has([data-today-layout="columns"]) { width: 100%; max-width: none; }
+.app-frame:has(.today-view) { height: 100dvh; min-height: 0; display: flex; flex-direction: column; }
+.app-frame:has(.today-view) > .mantine-Stack-root { flex: 1; min-height: 0; min-width: 0; }
+.app-frame:has(.today-view) > .mantine-Stack-root > :not(.today-surface) { flex-shrink: 0; }
+.today-surface, .today-surface > .mantine-Stack-root, .today-view { flex: 1; min-height: 0; min-width: 0; }
+.today-surface { display: flex; flex-direction: column; }
+.today-layout-switch { flex-shrink: 0; }
+.today-scroll-area { flex: 1; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.today-scroll-area > .mantine-Stack-root { min-width: 0; }
 .top-menu { display: flex; align-items: center; gap: 18px; min-height: 72px; padding: 0 2px 0; overflow-x: auto; scrollbar-width: none; }
 .top-menu::-webkit-scrollbar { display: none; }
 .top-menu-item { flex: 0 0 auto; min-height: 42px; padding: 0 18px; border: 1px solid transparent; border-radius: 14px; color: var(--color-text-primary); font-size: 20px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; transition: color 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
@@ -55,7 +64,7 @@ button, input, select { font: inherit; }
 .today-active-list > .today-task-row:last-child { border-bottom: 0; }
 .today-layout-switch .mantine-Button-root:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .today-layout-switch .mantine-Button-root:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-.today-active-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(360px, 1fr); gap: var(--space-4); align-items: start; overflow-x: auto; padding-bottom: var(--space-2); }
+.today-active-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(360px, 1fr); gap: var(--space-4); align-items: start; padding-bottom: var(--space-2); }
 .today-category-column { background: var(--color-bg-muted); border-color: var(--color-border-subtle); }
 .today-category-column-header { min-height: 44px; margin-bottom: var(--space-2); }
 .today-category-column-header h2 { font-size: 20px; }
@@ -67,6 +76,11 @@ button, input, select { font: inherit; }
 .today-task-row { background: var(--color-bg-surface); border-color: var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); }
 .today-task-title { font-size: 23px; line-height: 1.2; }
 .today-task-meta { color: var(--color-text-muted); font-size: 15px; }
+.today-task-actions { min-width: 0; max-width: 100%; }
+.today-task-actions > * { flex: 0 0 auto; }
+.today-task-actions > .mantine-Button-root, .today-task-actions > .today-postpone-menu { flex-shrink: 1; min-width: 0; }
+.today-task-actions .mantine-Button-root { padding-inline: 8px; font-size: 14px; }
+.today-task-actions > .today-postpone-menu > .mantine-Button-root { max-width: 100%; }
 .today-task-details { background: var(--color-bg-muted); border-color: var(--color-border-subtle); }
 .today-task-detail-label { color: var(--color-text-muted); font-size: 13px; }
 .today-task-detail-value { color: var(--color-text-primary); font-size: 15px; }
@@ -75,6 +89,5 @@ button, input, select { font: inherit; }
 .today-complete-action { background: var(--color-success); }
 .today-postpone-menu { position: relative; }
 .today-postpone-panel { background: var(--color-bg-elevated); border-color: var(--color-border-default); box-shadow: var(--shadow-soft); }
-@media (max-width: 900px) { .today-task-actions { flex-wrap: wrap; } }
 @media (max-width: 720px) { .app-frame { padding: var(--space-3); } .top-menu { gap: 4px; min-height: 72px; padding-bottom: 6px; } .top-menu-item { min-height: 58px; padding: 0 16px; font-size: 18px; } .top-menu-item svg { width: 23px; height: 23px; } .today-summary-title { font-size: 36px; } .today-task-row { padding: var(--space-4); } button { min-height: 44px; } }
-@media (max-width: 600px) { .today-task-header { flex-direction: column; } .today-task-actions { width: 100%; } .today-task-actions > * { flex: 1 1 auto; } }
+@media (max-width: 600px) { .today-task-header { flex-direction: column; } .today-task-actions { width: 100%; } }

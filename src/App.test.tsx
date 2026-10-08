@@ -10,7 +10,7 @@ import { resetTaskerStore, useTaskerStore } from "./state/taskerStore";
 function renderApp({ now = new Date(2026, 6, 5, 9, 0) }: { now?: Date } = {}) {
   useTaskerStore.getState().setSelectedCalendarDate(getTodayString(now));
   render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <App now={now} />
     </MantineProvider>
   );
