@@ -7,7 +7,7 @@ Status: propozycja do przeglądu; opisane zmiany aplikacji nie są wdrożone.
 
 Zmiany wykonane w różnych kartach, sesjach przeglądarki i komputerach mają przetrwać synchronizację, utratę sieci oraz ponowne uruchomienie aplikacji. Edycje różnych zadań mają się łączyć. Sprzeczne zmiany tego samego pola mają pozostać dostępne do rozstrzygnięcia przez użytkownika.
 
-Proponowane założenia: zachować React/Zustand, pracę bez sieci i bezpośrednie połączenie z Tigris. W pierwszym etapie nie dodawać serwera ani kont użytkowników. Bezpieczną synchronizację wielu komputerów zapewnić dla Tigris. Dla JSONHosting nie deklarować tej gwarancji bez potwierdzonego warunkowego zapisu.
+Ustalony zakres: całkowicie usunąć integrację JSONHosting. Tigris pozostaje jedynym dostawcą opcjonalnej synchronizacji. Zachować React/Zustand, pracę bez sieci i bezpośrednie połączenie z Tigris. W pierwszym etapie nie dodawać serwera ani kont użytkowników.
 
 ## Błędy, które propozycja usuwa
 
@@ -28,7 +28,7 @@ Ostatni problem wynika z `src/components/TaskForm.tsx`: efekt zależny od `state
 | Podejście | Zalety | Koszt i ograniczenia |
 | --- | --- | --- |
 | **Zalecane: trwałe operacje + łączenie zmian + warunkowy zapis w Tigris** | Zachowuje obecną architekturę bez serwera; chroni pracę bez sieci i równoczesne zapisy | Nowa warstwa przechowywania, reguły konfliktów i migracja formatu |
-| Serwer koordynujący zapisy i baza transakcyjna | Jedno miejsce egzekwowania reguł, łatwiejsze powiadomienia o zmianach | Nowa usługa, utrzymanie, autoryzacja i migracja obu dostawców |
+| Serwer koordynujący zapisy i baza transakcyjna | Jedno miejsce egzekwowania reguł, łatwiejsze powiadomienia o zmianach | Nowa usługa, utrzymanie, autoryzacja i migracja z Tigris |
 | Samo porównywanie i łączenie pełnych stanów w przeglądarce | Mniejsza zmiana kodu | Nadal występuje wyścig między odczytem a zapisem; nie spełnia celu |
 
 ## 1. Trwały model lokalny
@@ -45,7 +45,7 @@ Dla każdego zestawu danych przechowywać:
 
 Operacja ma stały `operationId`, identyfikator sesji, rodzaj operacji, identyfikator obiektu oraz wartości pól przed zmianą i po zmianie. Identyfikatory nowych zadań, kategorii, osób i zdarzeń powstają raz, przed zapisaniem operacji. Ponowienie nie generuje nowych identyfikatorów.
 
-Metadane są przypisane do zestawu danych: dostawca + bucket/objectKey albo documentId. Zmiana połączenia nie może przenieść kolejki do innego zestawu. Gdy kolejka jest niepusta, przełączenie wymaga jawnego wyboru: zachować lokalnie, wyeksportować albo dokończyć synchronizację. Samo rozłączenie nie usuwa operacji.
+Metadane są przypisane do zestawu danych: Tigris + bucket/objectKey albo odrębny lokalny zestaw bez synchronizacji. Zmiana połączenia nie może przenieść kolejki do innego zestawu. Gdy kolejka jest niepusta, przełączenie wymaga jawnego wyboru: zachować lokalnie, wyeksportować albo dokończyć synchronizację. Samo rozłączenie nie usuwa operacji.
 
 ## 2. Reguły łączenia i konfliktów
 
@@ -99,13 +99,15 @@ Web Locks, czyli blokady współdzielone przez karty, mogą ograniczać liczbę 
 
 Otwarty formularz zachowuje wartości i podstawę zadania do chwili zapisania lub anulowania. Zmiana danych z innej sesji nie zeruje formularza. Zapis tworzy operację tylko dla pól zmienionych przez użytkownika względem podstawy formularza. Zdalna zmiana tego samego pola jest rozstrzygana jako konflikt.
 
-## 5. JSONHosting i widoczne zmiany
+## 5. Usunięcie JSONHosting i widoczne zmiany
 
-Publiczna dokumentacja JSONHosting opisuje GET i PATCH, lecz nie dokumentuje sprawdzania oczekiwanej wersji przy zapisie. To brak potwierdzenia możliwości, a nie dowód, że usługa nigdy jej nie obsługuje.
+Decyzja użytkownika: usunąć JSONHosting w całości. Z widoku „Dane” znikają pola połączenia, status, tworzenie dokumentu i przyciski JSONHosting. Usunąć adapter i jego testy (`jsonHostingStorage.ts`, `jsonHostingStorage.test.ts`) oraz warstwę pośrednią `jsonHostingSync.ts`. Usunąć importy, typy, akcje, kontroler i wybór JSONHosting w `taskerStore.ts`, `App.tsx` i `DataTransferView.tsx`.
 
-W zalecanym wariancie do czasu potwierdzenia tej możliwości JSONHosting służy do jawnego pobrania lub wysłania kopii. Automatyczne zapisy zostają wstrzymane z komunikatem „Ten dostawca nie zapewnia ochrony równoczesnych zmian. Użyj Tigris do wspólnej edycji”. Istniejące dane dostępowe i dokument pozostają dostępne. Ręczne pobranie również nie zastępuje oczekujących operacji bez rozstrzygnięcia.
+Testy ogólnego kontrolera z `jsonHostingSync.test.ts` przenieść do `remoteSync.test.ts`; usunąć test eksportu starej warstwy pośredniej i zastąpić testy utraty zmian nowymi wymaganiami. Testy formularzy, eksportu/importu i synchronizacji Tigris pozostają. README ma opisywać wyłącznie Tigris i pracę lokalną. Historyczne dokumenty pozostają jako zapis wcześniejszych decyzji z informacją o zastąpieniu przez ten projekt.
 
-To zmiana obecnego działania JSONHosting i wymaga akceptacji przed wdrożeniem. Alternatywa zachowująca automatyczną wspólną edycję w JSONHosting wymaga potwierdzonego mechanizmu warunkowego albo nowego serwera koordynującego wszystkie zapisy. Sama blokada w jednej przeglądarce nie chroni innych komputerów.
+Migracja użytkownika JSONHosting zachowuje wszystkie lokalne zadania i pozostały AppState. Nie łączy automatycznie lokalnego stanu z innym obiektem Tigris. Użytkownik bez Tigris przechodzi do pracy lokalnej i może później skonfigurować Tigris. Użytkownik mający oba połączenia zachowuje dotychczasową konfigurację Tigris.
+
+Po trwałym zabezpieczeniu lokalnych danych usunąć lokalny wpis `tasker:jsonhosting:v1` z identyfikatorem dokumentu i kluczem edycji. Błąd migracji nie usuwa tego wpisu. Nie wykonywać żadnych żądań do JSONHosting, także podczas migracji, i nie usuwać zdalnego dokumentu. Dane znajdujące się wyłącznie w zdalnym dokumencie wymagają wcześniejszego eksportu w starej wersji; nie deklarować ich automatycznej migracji.
 
 Nowe statusy: „Zapisano lokalnie”, „Oczekuje na synchronizację”, „Synchronizacja”, „Wymaga rozstrzygnięcia” i „Zsynchronizowano”. Ostatni status jest dozwolony wyłącznie bez oczekujących operacji i konfliktów, po potwierdzeniu konkretnej wersji zdalnej. Nie oznacza natychmiastowego odświeżenia wszystkich komputerów.
 
@@ -124,10 +126,11 @@ Nowe statusy: „Zapisano lokalnie”, „Oczekuje na synchronizację”, „Syn
 3. Transakcyjne przechowywanie i migracja: nowe `src/storage/syncJournal.ts`; integracja z `taskerStorage.ts` i `taskerStore.ts`.
 4. Tigris: wynik odczytu z ETag, zapis warunkowy, klasyfikacja konfliktów i walidacja v2 w `tigrisStorage.ts`.
 5. Kontroler: przebudowa `remoteSync.ts` na odtwarzanie kolejki, potwierdzanie operacji i ponawianie; powiadomienia kart w osobnym module.
-6. Formularz i widok danych: zachowanie szkicu, prezentacja konfliktów, statusów i ograniczenia JSONHosting.
-7. Dokumentacja konfiguracji bucketu, przejścia na v2 i wymagań dla wszystkich urządzeń.
+6. Usunięcie JSONHosting: kod połączenia, kontroler, elementy widoku, nieaktualne testy i konfiguracja lokalna; zachowanie testów wspólnego mechanizmu synchronizacji.
+7. Formularz i widok danych: zachowanie szkicu, prezentacja konfliktów oraz statusów Tigris.
+8. Dokumentacja konfiguracji bucketu, przejścia na v2, usunięcia JSONHosting i wymagań dla wszystkich urządzeń.
 
-To kolejność proponowanych zmian, nie gotowy plan wykonawczy. Przed wdrożeniem ustalić zakres pierwszego etapu, politykę konfliktów i tryb JSONHosting.
+To kolejność proponowanych zmian, nie gotowy plan wykonawczy. Usunięcie JSONHosting jest ustalone. Przed wdrożeniem zatwierdzić pozostałą architekturę i politykę konfliktów.
 
 ## 8. Testy akceptacyjne
 
@@ -145,9 +148,12 @@ To kolejność proponowanych zmian, nie gotowy plan wykonawczy. Przed wdrożenie
 | Zamknięcie karty koordynującej lub brak Web Locks | Inna karta kontynuuje; dane pozostają poprawne |
 | Otwarty formularz i zdalna aktualizacja | Szkic nie znika; zapis wykrywa konflikt względem podstawy edycji |
 | Równoczesne pierwsze połączenie lub migracja | Jeden warunkowy zapis; kolejny klient zachowuje własne dane i łączy zmiany |
-| Zmiana dostawcy lub obiektu z niepustą kolejką | Operacje nie trafiają do innego zestawu danych |
+| Zmiana obiektu Tigris lub rozłączenie z niepustą kolejką | Operacje nie trafiają do innego zestawu danych |
 | Kategorie, słowniki, wykonania i odroczenia | Brak błędnych odwołań, podwójnych wykonań i zgubionych zdarzeń |
-| JSONHosting bez potwierdzonego warunku zapisu | Brak automatycznej obietnicy bezpiecznej wspólnej edycji |
+| Aktualizacja sesji mającej tylko JSONHosting | Lokalne dane pozostają, aplikacja pracuje lokalnie i nie wysyła żądań do JSONHosting |
+| Aktualizacja sesji mającej Tigris i JSONHosting | Konfiguracja Tigris pozostaje; stare dane dostępowe JSONHosting są usunięte po migracji |
+| Błąd migracji dawnego użytkownika JSONHosting | Dane lokalne i stara konfiguracja pozostają dostępne do odzyskania |
+| Widok „Dane” po aktualizacji | Tylko połączenie Tigris oraz istniejący eksport/import; brak kontrolek JSONHosting |
 | Wdrożenie przy aktywnym starszym kliencie | Blokada jego zapisu albo jawna niespełniona przesłanka wdrożenia |
 
 Testy jednostkowe sterują kolejnością odpowiedzi oraz awariami. Testy dwóch kontekstów przeglądarki sprawdzają karty współdzielące i niewspółdzielące pamięć. Test integracyjny korzysta wyłącznie z osobnego obiektu testowego Tigris, potwierdza ETag, odrzucenie nieaktualnego zapisu i CORS oraz, przed gwarancją międzyregionalną, wykonuje zapisy z dwóch regionów. Dane dostępowe do produkcji nie są potrzebne do testów jednostkowych.
@@ -157,6 +163,6 @@ Testy jednostkowe sterują kolejnością odpowiedzi oraz awariami. Testy dwóch 
 - Kod projektu: `src/state/remoteSync.ts`, `src/state/taskerStore.ts`, `src/storage/tigrisStorage.ts`, `src/storage/jsonHostingStorage.ts`, `src/components/TaskForm.tsx`.
 - Audyt z 2026-10-08: 72 istniejące testy synchronizacji i przechowywania przeszły; dodatkowe pięć odtworzeń wykazało utratę zmian. Odtworzenia używały rzeczywistego kodu z symulowaną usługą, bez zapisów do produkcji.
 - [Tigris — Conditional writes i spójność danych](https://www.tigrisdata.com/features/): deklaruje If-Match/If-None-Match; opis spójności różni się zależnie od rodzaju bucketu. Szczegółowa strona warunków nie była dostępna w narzędziu przeglądania; dlatego dokument nie traktuje konkretnych kodów odpowiedzi i atomowości międzyregionalnej jako zweryfikowanych.
-- [JSONHosting — dokumentacja API](https://jsonhosting.com/#api): dokumentuje zapis PATCH z kluczem edycji; nie dokumentuje warunkowego zapisu w odczytanej treści.
+- Decyzja użytkownika z 2026-10-08: JSONHosting ma zostać usunięty w całości, zamiast pozostawać dostawcą kopii ręcznych.
 
 Starszy opis README „Tigris does not provide compare-and-swap protection for this flow” należy doprecyzować: obecny kod nie używa deklarowanej przez usługę ochrony warunkowego zapisu.
