@@ -1,7 +1,7 @@
 # Propozycja bezpiecznej równoczesnej edycji Taskera
 
 Data: 2026-10-08. Gałąź: `codex/concurrent-task-editing`.
-Status: propozycja do przeglądu; opisane zmiany aplikacji nie są wdrożone.
+Status: zaimplementowano na gałęzi `codex/concurrent-task-editing`; nie opublikowano aplikacji. Przeszły 172 testy oraz kompilacje standardowa i GitHub Pages. Testy synchronizacji używają symulowanej usługi i sesji; rzeczywisty Tigris, konfiguracja CORS i spójność między regionami wymagają oddzielnej weryfikacji.
 
 ## Cel i kryteria powodzenia
 
@@ -130,7 +130,7 @@ Nowe statusy: „Zapisano lokalnie”, „Oczekuje na synchronizację”, „Syn
 7. Formularz i widok danych: zachowanie szkicu, prezentacja konfliktów oraz statusów Tigris.
 8. Dokumentacja konfiguracji bucketu, przejścia na v2, usunięcia JSONHosting i wymagań dla wszystkich urządzeń.
 
-To kolejność proponowanych zmian, nie gotowy plan wykonawczy. Usunięcie JSONHosting jest ustalone. Przed wdrożeniem zatwierdzić pozostałą architekturę i politykę konfliktów.
+Plan wykonawczy: `docs/superpowers/plans/2026-10-08-concurrent-task-editing.md`. Użytkownik zatwierdził realizację. Wyniki przeglądu i ograniczenia weryfikacji: `docs/superpowers/reviews/2026-10-08-concurrent-task-editing-review.md`.
 
 ## 8. Testy akceptacyjne
 

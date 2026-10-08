@@ -99,7 +99,11 @@ export type TaskerStore = {
   movePriority: (id: string, direction: "up" | "down") => Promise<void>;
   previewImport: (raw: string) => ImportPreview;
   applyImport: (preview: ImportPreview) => Promise<void>;
-  addTask: (draft: TaskDraft, now?: Date) => Promise<void>;
+  addTask: (
+    draft: TaskDraft,
+    now?: Date,
+    creatingBase?: AppState,
+  ) => Promise<void>;
   updateTask: (
     id: string,
     draft: TaskDraft,
@@ -265,8 +269,8 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
         mutate((s) => setPriorityActiveDomain(s, key, active)),
       movePriority: (key, direction) =>
         mutate((s) => movePriorityDomain(s, key, direction)),
-      addTask: (draft, now = new Date()) =>
-        mutate((s) => addTask(s, draft, now.toISOString())),
+      addTask: (draft, now = new Date(), base) =>
+        mutate((s) => addTask(s, draft, now.toISOString()), base),
       updateTask: (key, draft, now = new Date(), base) =>
         mutate((s) => updateTask(s, key, draft, now.toISOString()), base),
       deactivateTask: (key, now = new Date()) =>
@@ -299,6 +303,7 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
           controller.scheduleSave();
         } catch (error) {
           report(error);
+          await get().refresh();
           throw error;
         }
       },
@@ -402,7 +407,7 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
           const record = await journal.read(dataset);
           if (record.version > get().localVersion) {
             publish(record);
-            controller.scheduleSave();
+            if (record.operations.length) controller.scheduleSave();
           }
         } catch (error) {
           report(error);
@@ -483,7 +488,7 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
     onChange: (record) => {
       if (
         record.dataset !== dataset ||
-        record.version < store.getState().localVersion
+        record.version <= store.getState().localVersion
       )
         return;
       store.setState({

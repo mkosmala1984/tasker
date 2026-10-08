@@ -7,7 +7,14 @@ import {
   type Entity,
   type SyncConflict,
   type SyncOperation,
+  namedCollections,
 } from "./syncOperations";
+import {
+  isReferenced,
+  missingReferences,
+  referenceCollections,
+  restoreReferences,
+} from "./syncReferences";
 
 function normalize(value: unknown) {
   return String(value).trim().toLocaleLowerCase("pl").normalize("NFKC");
@@ -29,6 +36,7 @@ export function applyChange(state: AppState, change: Change, value: unknown) {
   } else if (change.field === "$entity") {
     const i = list.findIndex((x) => x.id === change.id);
     if (value === undefined) {
+      if (isReferenced(state, change.collection, change.id)) return;
       if (i >= 0) list.splice(i, 1);
     } else if (i >= 0) list[i] = structuredClone(value) as Entity;
     else list.push(structuredClone(value) as Entity);
@@ -47,7 +55,7 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
   for (const operation of operations) {
     for (const [from, to] of Object.entries(operation.aliases ?? {}))
       aliases.set(from, to);
-    for (const collection of ["categories", "assignees"] as const) {
+    for (const collection of namedCollections) {
       for (const reference of operation.references?.[collection] ?? []) {
         if (!entities(state, collection).some((x) => x.id === reference.id)) {
           const existing = entities(state, collection).find(
@@ -87,12 +95,12 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
         !Array.isArray(change.after)
       ) {
         const item = change.after as Entity;
-        for (const field of ["categoryId", "assigneeId", "taskId"])
+        for (const field of Object.keys(referenceCollections))
           if (typeof item[field] === "string")
             item[field] = aliases.get(item[field] as string) ?? item[field];
       }
       if (
-        ["categoryId", "assigneeId", "taskId"].includes(change.field) &&
+        Object.keys(referenceCollections).includes(change.field) &&
         typeof change.after === "string"
       )
         change.after = aliases.get(change.after) ?? change.after;
@@ -114,8 +122,7 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
         const item = change.after as Entity;
         const duplicate = entities(state, change.collection).find((x) => {
           if (
-            change.collection === "categories" ||
-            change.collection === "assignees"
+            (namedCollections as readonly string[]).includes(change.collection)
           )
             return normalize(x.name) === normalize(item.name);
           if (change.collection === "completions")
@@ -130,11 +137,11 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
           aliases.set(original.id, duplicate.id);
           change.id = duplicate.id;
           if (
-            change.collection === "categories" ||
-            change.collection === "assignees"
+            (namedCollections as readonly string[]).includes(change.collection)
           ) {
             if (
-              change.collection === "categories" &&
+              (change.collection === "categories" ||
+                change.collection === "priorities") &&
               !equal(duplicate.color, item.color)
             ) {
               change.field = "color";
@@ -143,6 +150,15 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
               // Same-name category creation has no shared color baseline.
               change.before = undefined;
               remote = duplicate.color;
+            } else if (
+              (change.collection === "taskTypes" ||
+                change.collection === "priorities") &&
+              !equal(duplicate.active, item.active)
+            ) {
+              change.field = "active";
+              change.before = undefined;
+              change.after = item.active;
+              remote = duplicate.active;
             } else continue;
           } else {
             change.field =
@@ -179,7 +195,7 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
           ))
             restored[patch.field] = structuredClone(patch.after);
           restored.id = change.id;
-          for (const field of ["categoryId", "assigneeId", "taskId"])
+          for (const field of Object.keys(referenceCollections))
             if (typeof restored[field] === "string")
               restored[field] =
                 aliases.get(restored[field] as string) ?? restored[field];
@@ -188,9 +204,22 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
           change.after = restored;
         }
       }
+      const referencedValue =
+        change.field in referenceCollections
+          ? { [change.field]: change.after }
+          : change.after;
+      if (operation.restoreReferences)
+        restoreReferences(state, referencedValue, [operation]);
+      const missingReference = missingReferences(state, referencedValue);
+      const referencedDelete =
+        change.field === "$entity" &&
+        change.after === undefined &&
+        isReferenced(state, change.collection, change.id);
       if (
         !dependent &&
         !missingEntity &&
+        !missingReference &&
+        !referencedDelete &&
         (equal(remote, change.before) || equal(remote, change.after))
       ) {
         applyChange(state, change, change.after);
@@ -201,6 +230,11 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
           changeIndex,
           local: change.after,
           remote: structuredClone(remote),
+          ...(referencedDelete
+            ? { reason: "reference-delete" as const }
+            : missingReference
+              ? { reason: "missing-reference" as const }
+              : {}),
         });
         if (change.collection !== "tasks") blocked.add(change.id);
       }
@@ -219,5 +253,15 @@ export function mergeOperations(base: AppState, operations: SyncOperation[]) {
       projected = structuredClone(conflict.local) as AppState;
   for (const change of pendingProjection)
     applyChange(projected, change, change.after);
+  for (const task of projected.tasks)
+    restoreReferences(projected, task, operations);
+  // Concurrent insertions can have the same old nextOrder. Canonical ranks make subsequent moves well-defined.
+  for (const collection of ["taskTypes", "priorities"] as const) {
+    for (const target of [state, projected])
+      order(target, collection).forEach((id, i) => {
+        const item = entities(target, collection).find((x) => x.id === id);
+        if (item) item.order = i;
+      });
+  }
   return { state, projected, conflicts, appliedIds };
 }

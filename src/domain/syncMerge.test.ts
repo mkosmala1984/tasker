@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createEmptyState } from "../storage/taskerStorage";
 import { createOperation } from "./syncOperations";
 import { mergeOperations } from "./syncMerge";
+import { addTask } from "./tasks";
+import { isValidState } from "./stateValidation";
+import { movePriority } from "./configuration";
 
 function fixture() {
   return {
@@ -25,6 +28,70 @@ function fixture() {
   };
 }
 describe("three-way operations", () => {
+  it("gives concurrent dictionary additions distinct positions so moving them works", () => {
+    const base = fixture(),
+      next = structuredClone(base),
+      remote = structuredClone(base);
+    next.priorities.push({ id: "a", name: "A", active: true, order: 1 });
+    remote.priorities.push({ id: "b", name: "B", active: true, order: 1 });
+    const merged = mergeOperations(remote, [
+      createOperation(base, next, "s"),
+    ]).state;
+    expect(new Set(merged.priorities.map((p) => p.order)).size).toBe(3);
+    const before = [...merged.priorities]
+      .sort((a, b) => a.order - b.order)
+      .map((p) => p.id);
+    const moved = movePriority(merged, before[2], "up");
+    expect(
+      [...moved.priorities].sort((a, b) => a.order - b.order).map((p) => p.id),
+    ).toEqual([before[0], before[2], before[1]]);
+  });
+  it("conflicts instead of deleting a category newly referenced by a remote task", () => {
+    const base = {
+      ...createEmptyState(),
+      categories: [{ id: "c", name: "Dom", color: "#ff0000" }],
+    };
+    const remote = addTask(
+      base,
+      {
+        title: "Nowe",
+        categoryName: "Dom",
+        assigneeName: "Ja",
+        schedule: { mode: "oneTime", date: "2026-10-08" },
+        active: true,
+      },
+      new Date().toISOString(),
+    );
+    const next = { ...base, categories: [] };
+    const result = mergeOperations(remote, [createOperation(base, next, "s")]);
+    expect(result.conflicts).toHaveLength(1);
+    expect(isValidState(result.state)).toBe(true);
+    expect(isValidState(result.projected)).toBe(true);
+  });
+  it("deduplicates a concurrently created named priority and remaps a dependent task", () => {
+    const base = fixture(),
+      next = structuredClone(base),
+      remote = structuredClone(base);
+    next.priorities.push({
+      id: "local-p",
+      name: "Pilny",
+      active: true,
+      order: 1,
+      color: "#ff0000",
+    });
+    next.tasks[0].priorityId = "local-p";
+    remote.priorities.push({
+      id: "remote-p",
+      name: " pilny ",
+      active: true,
+      order: 1,
+      color: "#ff0000",
+    });
+    const result = mergeOperations(remote, [createOperation(base, next, "s")]);
+    expect(result.conflicts).toEqual([]);
+    expect(result.state.priorities).toHaveLength(2);
+    expect(result.state.tasks[0].priorityId).toBe("remote-p");
+  });
   it("keeps timestamps for display without using clocks to select field values", () => {
     const base = fixture(),
       next = structuredClone(base);

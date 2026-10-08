@@ -9,6 +9,7 @@ import { mergeOperations } from "../domain/syncMerge";
 import { isValidState } from "../domain/stateValidation";
 import type { RemoteDocument } from "./syncEnvelope";
 import { createEmptyState } from "./taskerStorage";
+import { isReferenced } from "../domain/syncReferences";
 
 export type JournalRecord = {
   dataset: string;
@@ -77,7 +78,9 @@ export class SyncJournal {
       const request = store.get(dataset);
       request.onsuccess = () => {
         try {
+          const before = structuredClone(request.result);
           result = update(request.result);
+          if (before && equal(before, result)) return;
           result.version += 1;
           store.put(result);
         } catch (error) {
@@ -219,14 +222,27 @@ export class SyncJournal {
             ? operation.changes.find((x) => x.id === id && x.field === field)
             : operation.changes[conflict.changeIndex];
         if (change) {
+          if (change.id !== conflict.id)
+            operation.aliases = {
+              ...operation.aliases,
+              [change.id]: conflict.id,
+            };
           if (choice === "remote")
             operation.changes = operation.changes.filter((x) => x !== change);
           else {
-            if (change.id !== conflict.id)
-              operation.aliases = {
-                ...operation.aliases,
-                [change.id]: conflict.id,
-              };
+            if (
+              conflict.local === undefined &&
+              conflict.field === "$entity" &&
+              isReferenced(current.state, conflict.collection, conflict.id)
+            )
+              throw new Error(
+                "Ten wpis jest używany przez zadania. Najpierw zmień ich odwołania albo przyjmij zmianę zdalną.",
+              );
+            if (
+              conflict.field === "$entity" ||
+              conflict.reason === "missing-reference"
+            )
+              operation.restoreReferences = true;
             Object.assign(change, {
               collection: conflict.collection,
               id: conflict.id,

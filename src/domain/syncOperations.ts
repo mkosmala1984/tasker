@@ -9,6 +9,12 @@ export const collections = [
   "completions",
   "postponements",
 ] as const;
+export const namedCollections = [
+  "categories",
+  "assignees",
+  "taskTypes",
+  "priorities",
+] as const;
 export type Collection = (typeof collections)[number];
 export type Entity = { id: string; [key: string]: unknown };
 export type Change = {
@@ -24,6 +30,7 @@ export type SyncOperation = {
   changes: Change[];
   references?: Partial<Record<Collection, Entity[]>>;
   aliases?: Record<string, string>;
+  restoreReferences?: boolean;
   replacement?: { before: AppState; after: AppState };
 };
 export type SyncConflict = Change & {
@@ -31,6 +38,7 @@ export type SyncConflict = Change & {
   changeIndex?: number;
   local: unknown;
   remote: unknown;
+  reason?: "reference-delete" | "missing-reference";
 };
 
 // Equality is independent of object property insertion order and client clocks.
@@ -73,9 +81,10 @@ export function createOperation(
     changes: [],
   };
   operation.references = Object.fromEntries(
-    ["categories", "assignees", "tasks", "completions", "postponements"].map(
-      (c) => [c, structuredClone(entities(before, c as Collection))],
-    ),
+    collections.map((c) => [
+      c,
+      structuredClone(entities(before, c as Collection)),
+    ]),
   );
   if (replace) return { ...operation, replacement: { before, after } };
   for (const collection of collections) {

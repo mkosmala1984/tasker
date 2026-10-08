@@ -4,8 +4,106 @@ import { SyncJournal } from "./syncJournal";
 import { createEmptyState } from "./taskerStorage";
 import { createOperation } from "../domain/syncOperations";
 import { addTask, updateTask } from "../domain/tasks";
+import { isValidState } from "../domain/stateValidation";
 
 describe("durable journal", () => {
+  it("keeps the remote category identity when its color is selected remotely", async () => {
+    const journal = new SyncJournal(crypto.randomUUID()),
+      base = createEmptyState();
+    await journal.initialize("a", base);
+    const next = addTask(
+      base,
+      {
+        title: "Moje",
+        categoryName: "Dom",
+        categoryColor: "#ff0000",
+        assigneeName: "Ja",
+        schedule: { mode: "oneTime", date: "2026-10-08" },
+        active: true,
+      },
+      new Date().toISOString(),
+    );
+    await journal.append("a", createOperation(base, next, "s"));
+    const state = structuredClone(base);
+    state.categories.push({ id: "remote", name: "Dom", color: "#0000ff" });
+    let record = await journal.acceptRemote("a", {
+      envelope: {
+        version: 2,
+        revision: 1,
+        updatedAt: new Date().toISOString(),
+        state,
+        appliedOperationIds: [],
+      },
+      etag: "e1",
+    });
+    const color = record.conflicts.find((x) => x.field === "color")!;
+    record = await journal.resolve(
+      "a",
+      color.operationId,
+      color.field,
+      color.id,
+      "remote",
+    );
+    expect(record.conflicts).toEqual([]);
+    expect(record.state.tasks[0].categoryId).toBe("remote");
+    expect(isValidState(record.state)).toBe(true);
+  });
+  it("restores the required dictionaries together with an explicitly restored task", async () => {
+    const journal = new SyncJournal(crypto.randomUUID());
+    const draft = {
+      title: "Pierwsze",
+      categoryName: "Dom",
+      assigneeName: "Ja",
+      schedule: { mode: "oneTime" as const, date: "2026-10-08" },
+      active: true,
+    };
+    const base = addTask(createEmptyState(), draft, new Date().toISOString());
+    await journal.initialize("a", base);
+    await journal.acceptRemote("a", {
+      envelope: {
+        version: 2,
+        revision: 1,
+        updatedAt: new Date().toISOString(),
+        state: base,
+        appliedOperationIds: [],
+      },
+      etag: "e1",
+    });
+    await journal.append(
+      "a",
+      createOperation(
+        base,
+        updateTask(
+          base,
+          base.tasks[0].id,
+          { ...draft, title: "Moje" },
+          new Date().toISOString(),
+        ),
+        "s",
+      ),
+    );
+    let record = await journal.acceptRemote("a", {
+      envelope: {
+        version: 2,
+        revision: 2,
+        updatedAt: new Date().toISOString(),
+        state: createEmptyState(),
+        appliedOperationIds: [],
+      },
+      etag: "e2",
+    });
+    const conflict = record.conflicts[0];
+    record = await journal.resolve(
+      "a",
+      conflict.operationId,
+      conflict.field,
+      conflict.id,
+      "local",
+    );
+    expect(record.conflicts).toEqual([]);
+    expect(record.state.tasks[0].title).toBe("Moje");
+    expect(isValidState(record.state)).toBe(true);
+  });
   it("lets the user restore a locally edited task removed by a remote replacement", async () => {
     const journal = new SyncJournal(crypto.randomUUID());
     const draft = {

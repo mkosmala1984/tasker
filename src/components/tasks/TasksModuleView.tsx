@@ -19,8 +19,8 @@ export function TasksModuleView({ today }: Props) {
   const updateTask = useTaskerStore((store) => store.updateTask);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
 
-  async function handleCreate(draft: TaskDraft) {
-    await addTask(draft);
+  async function handleCreate(draft: TaskDraft, base: AppState) {
+    await addTask(draft, undefined, base);
     closeTaskEditor();
   }
 

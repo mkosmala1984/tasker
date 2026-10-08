@@ -4,6 +4,8 @@ import { createTaskerStore } from "./taskerStore";
 import { SyncJournal } from "../storage/syncJournal";
 import { createEmptyState, STORAGE_KEY } from "../storage/taskerStorage";
 import { createExportPayload } from "../storage/taskerBackup";
+import * as tigris from "../storage/tigrisStorage";
+import { addTask } from "../domain/tasks";
 const stores: ReturnType<typeof createTaskerStore>[] = [];
 async function session(name = crypto.randomUUID()) {
   const store = createTaskerStore(new SyncJournal(name));
@@ -16,8 +18,102 @@ afterEach(() => {
   stores.length = 0;
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 describe("durable tasker store", () => {
+  it("refreshes the current version after rejecting a stale import so it can be reconfirmed", async () => {
+    const name = crypto.randomUUID(),
+      a = await session(name),
+      b = await session(name);
+    const backup = JSON.stringify(
+      createExportPayload(createEmptyState(), new Date().toISOString()),
+    );
+    const preview = a.getState().previewImport(backup);
+    await b.getState().addCategory({ name: "Nowe", color: "#ff0000" });
+    await expect(a.getState().applyImport(preview)).rejects.toThrow(/ponownie/);
+    expect(a.getState().localVersion).toBe(b.getState().localVersion);
+    await a.getState().applyImport(a.getState().previewImport(backup));
+    expect(a.getState().state.categories).toEqual([]);
+  });
+  it("preserves a creation form's selected category identity after it is renamed", async () => {
+    const initial = addTask(
+      createEmptyState(),
+      {
+        title: "Istniejące",
+        categoryName: "Dom",
+        assigneeName: "Ja",
+        schedule: { mode: "oneTime", date: "2026-10-08" },
+        active: true,
+      },
+      new Date().toISOString(),
+    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    const a = await session(),
+      base = structuredClone(a.getState().state);
+    await a
+      .getState()
+      .updateCategory(base.categories[0].id, {
+        name: "Mieszkanie",
+        color: "#ff0000",
+      });
+    await a
+      .getState()
+      .addTask(
+        {
+          title: "Nowe",
+          categoryName: "Dom",
+          assigneeName: "Ja",
+          schedule: { mode: "oneTime", date: "2026-10-08" },
+          active: true,
+        },
+        undefined,
+        base,
+      );
+    expect(a.getState().state.categories).toHaveLength(1);
+    expect(a.getState().state.tasks[1].categoryId).toBe(base.categories[0].id);
+  });
+  it("does not turn idle tab notifications into repeated remote reads", async () => {
+    class Channel {
+      static peers = new Set<Channel>();
+      onmessage?: () => void;
+      constructor(_name: string) {
+        Channel.peers.add(this);
+      }
+      postMessage(_value: unknown) {
+        for (const peer of Channel.peers)
+          if (peer !== this) queueMicrotask(() => peer.onmessage?.());
+      }
+      close() {
+        Channel.peers.delete(this);
+      }
+    }
+    vi.stubGlobal("BroadcastChannel", Channel);
+    tigris.saveTigrisCredentials({
+      bucket: "test",
+      objectKey: "test",
+      accessKeyId: "test",
+      secretAccessKey: "test",
+    });
+    const get = vi
+      .spyOn(tigris, "getTigrisEnvelope")
+      .mockResolvedValue({
+        envelope: {
+          version: 2,
+          revision: 1,
+          updatedAt: new Date().toISOString(),
+          state: createEmptyState(),
+          appliedOperationIds: [],
+        },
+        etag: "e1",
+      });
+    const name = crypto.randomUUID(),
+      a = await session(name),
+      b = await session(name);
+    a.getState().startSync();
+    b.getState().startSync();
+    await new Promise((resolve) => setTimeout(resolve, 2400));
+    expect(get).toHaveBeenCalledTimes(2);
+  });
   it("opens its durable state even if the old recovery copy was later damaged", async () => {
     const name = crypto.randomUUID(),
       a = await session(name);

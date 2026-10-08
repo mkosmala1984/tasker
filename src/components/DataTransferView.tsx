@@ -166,6 +166,18 @@ export function DataTransferView({
           title={`Konflikt: ${state.tasks.find((t) => t.id === conflict.id)?.title ?? conflict.id} — ${conflict.field}`}
         >
           <Stack gap="xs">
+            {conflict.field === "$entity" && conflict.local ? (
+              <Text>
+                Przywrócenie mojej wersji przywróci też brakujące kategorie,
+                osoby, typy i priorytety potrzebne temu zadaniu.
+              </Text>
+            ) : null}
+            {conflict.reason === "reference-delete" ? (
+              <Text>
+                Ten wpis jest teraz używany przez zadania. Aby go usunąć,
+                najpierw zmień ich odwołania.
+              </Text>
+            ) : null}
             <Text>
               Moja wartość: {JSON.stringify(conflict.local) ?? "usunięto"}
             </Text>
@@ -174,6 +186,7 @@ export function DataTransferView({
             </Text>
             <Group>
               <Button
+                disabled={conflict.reason === "reference-delete"}
                 onClick={() =>
                   void onResolveConflict?.(conflict, "local").catch((e) =>
                     setError(e.message),

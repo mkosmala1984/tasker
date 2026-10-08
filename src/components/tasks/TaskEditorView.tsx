@@ -8,7 +8,7 @@ type Props = {
   today: string;
   initialDate?: string;
   taskId?: string | null;
-  onCreate: (draft: TaskDraft) => void | Promise<void>;
+  onCreate: (draft: TaskDraft, base: AppState) => void | Promise<void>;
   onUpdate: (taskId: string, draft: TaskDraft, base: AppState) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -49,7 +49,7 @@ export function TaskEditorView({ state, today, initialDate, taskId, onCreate, on
           if (task) {
             await onUpdate(task.id, draft, editingBase);
           } else {
-            await onCreate(draft);
+            await onCreate(draft, editingBase);
           }
         }}
       />
