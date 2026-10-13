@@ -110,4 +110,4 @@ export type TaskDraft = {
   active: boolean;
 };
 
-export type AppView = "today" | "tasks" | "calendar" | "categories" | "settings" | "history" | "data";
+export type AppView = "today" | "tasks" | "calendar" | "categories" | "statistics" | "settings" | "history" | "data";

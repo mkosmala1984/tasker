@@ -109,6 +109,41 @@ describe("App", () => {
     await resetTaskerStore();
   });
 
+  it("shows active task counts by category and refreshes after deactivation", async () => {
+    await seedTaskFormDictionaries();
+    const store = useTaskerStore.getState();
+    for (const [title, categoryName, active] of [
+      ["Podlewanie", "Dom", true],
+      ["Sprzątanie", "Dom", true],
+      ["Nieaktywne", "Dom", false],
+      ["Raport", "Praca", true]
+    ] as const) {
+      await store.addTask({
+        title, categoryName, assigneeName: "Ola", active,
+        schedule: { mode: "oneTime", date: "2027-01-01" }
+      });
+    }
+    await store.addCategory({ name: "Zdrowie", color: "#228be6" });
+    renderApp();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Statystyki" }));
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("row", { name: "Dom 2" })).toBeInTheDocument();
+    expect(within(table).getByRole("row", { name: "Praca 1" })).toBeInTheDocument();
+    expect(within(table).getByRole("row", { name: "Zdrowie 0" })).toBeInTheDocument();
+
+    const taskId = useTaskerStore.getState().state.tasks.find(task => task.title === "Podlewanie")!.id;
+    await act(async () => { await store.deactivateTask(taskId); });
+    expect(within(table).getByRole("row", { name: "Dom 1" })).toBeInTheDocument();
+  });
+
+  it("shows an empty statistics view when there are no categories", async () => {
+    await seedState({ ...useTaskerStore.getState().state, categories: [], tasks: [] });
+    renderApp();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Statystyki" }));
+    expect(screen.getByText("Brak kategorii do wyświetlenia.")).toBeInTheDocument();
+  });
+
   it("adds a task and persists it in the journal", async () => {
     await seedTaskFormDictionaries();
     renderApp();
@@ -424,7 +459,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Historia" })).toBeInTheDocument();
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
     expect(screen.getAllByText("2026-07-07").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/statysty/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Statystyki" })).not.toBeInTheDocument();
   });
 
   it("exports complete local data from the Dane view", async () => {

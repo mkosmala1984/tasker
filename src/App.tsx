@@ -5,6 +5,7 @@ import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
 import { DictionaryManager } from "./components/DictionaryManager";
 import { HistoryView } from "./components/HistoryView";
+import { StatisticsView } from "./components/StatisticsView";
 import { TodayViewShell } from "./components/today/TodayViewShell";
 import { TasksModuleView } from "./components/tasks/TasksModuleView";
 import { formatPolishDateLabel, getTodayString } from "./domain/dates";
@@ -15,10 +16,14 @@ type Props = {
   now?: Date;
 };
 
-type MenuIconName = "today" | "tasks" | "calendar" | "categories" | "settings" | "history" | "data";
+type MenuIconName = "today" | "tasks" | "calendar" | "categories" | "statistics" | "settings" | "history" | "data";
 
 function MenuIcon({ name }: { name: MenuIconName }) {
   const common = { width: 28, height: 28, viewBox: "0 0 28 28", fill: "none", "aria-hidden": true } as const;
+
+  if (name === "statistics") {
+    return <svg {...common}><path d="M4 4v20h20M9 19v-6M15 19V7M21 19v-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  }
 
   if (name === "tasks") {
     return <svg {...common}><rect x="5" y="4" width="18" height="20" rx="3" stroke="currentColor" strokeWidth="1.8" /><path d="m9 10 2 2 4-4M9 17h8M9 21h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -111,6 +116,7 @@ export default function App({ now = new Date() }: Props) {
         <nav className="top-menu" aria-label="Główna nawigacja">
           {([
             ["today", "Dzisiaj"], ["tasks", "Zadania"], ["calendar", "Kalendarz"], ["categories", "Kategorie"],
+            ["statistics", "Statystyki"],
             ["settings", "Konfiguracja"], ["history", "Historia"], ["data", "Dane"],
           ] as const).map(([menuView, label]) => (
             <Button
@@ -155,6 +161,11 @@ export default function App({ now = new Date() }: Props) {
           </Paper>
         ) : null}
         {view === "tasks" ? <TasksModuleView today={today} /> : null}
+        {view === "statistics" ? (
+          <Paper withBorder p="lg" radius="md" shadow="xs">
+            <StatisticsView state={state} />
+          </Paper>
+        ) : null}
         {view === "calendar" ? (
           <CalendarView today={today} onCreateTaskForDate={handleCreateTaskForDate} onEditTask={handleEditTaskFromCalendar} />
         ) : null}
