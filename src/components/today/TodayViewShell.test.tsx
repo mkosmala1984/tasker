@@ -46,7 +46,7 @@ const activeTasks = [
 ];
 
 function renderView() {
-  render(
+  return render(
     <MantineProvider>
       <TodayViewShell
         today="2026-07-05"
@@ -105,5 +105,36 @@ describe("TodayViewShell layout", () => {
 
     expect(screen.getByRole("button", { name: "Lista", pressed: true })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Aktywne zadania" })).toBeInTheDocument();
+  });
+
+  it("moves columns in both directions and restores their order after remount", async () => {
+    const view = renderView();
+    const user = userEvent.setup();
+    const columnNames = () => screen.getAllByRole("region", { name: /Kategoria:/ }).map((column) => column.getAttribute("aria-label"));
+
+    expect(screen.getByRole("button", { name: "Przesuń w lewo: Dom" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Przesuń w prawo: Praca" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Przesuń w lewo: Praca" }));
+    expect(columnNames()).toEqual(["Kategoria: Praca", "Kategoria: Dom"]);
+
+    view.unmount();
+    renderView();
+    expect(columnNames()).toEqual(["Kategoria: Praca", "Kategoria: Dom"]);
+    await user.click(screen.getByRole("button", { name: "Przesuń w prawo: Praca" }));
+    expect(columnNames()).toEqual(["Kategoria: Dom", "Kategoria: Praca"]);
+  });
+
+  it("keeps hidden category positions and appends new categories to saved order", () => {
+    localStorage.setItem("tasker.todayColumnOrder", JSON.stringify(["cat-work", "cat-empty", "cat-deleted"]));
+    renderView();
+    expect(screen.getAllByRole("region", { name: /Kategoria:/ }).map((column) => column.getAttribute("aria-label")))
+      .toEqual(["Kategoria: Praca", "Kategoria: Dom"]);
+  });
+
+  it.each(["{", "null", '[1, "cat-work"]'])("ignores invalid saved column order: %s", (value) => {
+    localStorage.setItem("tasker.todayColumnOrder", value);
+    renderView();
+    expect(screen.getAllByRole("region", { name: /Kategoria:/ }).map((column) => column.getAttribute("aria-label")))
+      .toEqual(["Kategoria: Dom", "Kategoria: Praca"]);
   });
 });

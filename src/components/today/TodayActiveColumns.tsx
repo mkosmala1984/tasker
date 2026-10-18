@@ -1,4 +1,4 @@
-import { Badge, Group, Paper, Stack, Title } from "@mantine/core";
+import { ActionIcon, Badge, Group, Paper, Stack, Title } from "@mantine/core";
 import type { Category, TodayTask } from "../../domain/types";
 import { TodayTaskRow } from "./TodayTaskRow";
 
@@ -6,6 +6,7 @@ type Props = {
   today: string;
   activeTasks: TodayTask[];
   categories: Category[];
+  onMoveColumn: (categoryId: string, direction: -1 | 1) => void;
   expandedTaskIds: string[];
   onExpandedTaskIdsChange: (taskIds: string[]) => void;
   onComplete: (taskId: string, scheduledDate: string) => void;
@@ -18,6 +19,7 @@ export function TodayActiveColumns({
   today,
   activeTasks,
   categories,
+  onMoveColumn,
   expandedTaskIds,
   onExpandedTaskIdsChange,
   onComplete,
@@ -42,14 +44,22 @@ export function TodayActiveColumns({
 
   return (
     <div className="today-active-columns" aria-label="Aktywne zadania według kategorii">
-      {groupedTasks.map(({ category, tasks }) => (
+      {groupedTasks.map(({ category, tasks }, index) => (
         <Paper className="today-category-column" component="section" aria-label={`Kategoria: ${category.name}`} key={category.id} withBorder radius="md" p="md">
           <Group className="today-category-column-header" justify="space-between" align="center" gap="sm">
             <Group gap="xs">
               <span className="today-category-color" style={{ backgroundColor: category.color }} aria-hidden="true" />
               <Title order={2}>{category.name}</Title>
             </Group>
-            <Badge variant="light">{tasks.length}</Badge>
+            <Group gap={4} wrap="nowrap">
+              <Badge variant="light">{tasks.length}</Badge>
+              <ActionIcon type="button" variant="default" aria-label={`Przesuń w lewo: ${category.name}`} title="Przesuń w lewo" disabled={index === 0} onClick={() => onMoveColumn(category.id, -1)}>
+                <span aria-hidden="true">←</span>
+              </ActionIcon>
+              <ActionIcon type="button" variant="default" aria-label={`Przesuń w prawo: ${category.name}`} title="Przesuń w prawo" disabled={index === groupedTasks.length - 1} onClick={() => onMoveColumn(category.id, 1)}>
+                <span aria-hidden="true">→</span>
+              </ActionIcon>
+            </Group>
           </Group>
           <Stack className="today-category-column-tasks" gap={0}>
             {tasks.map((item) => {

@@ -22,6 +22,16 @@ export type TodayViewShellProps = {
 type TodayLayout = "columns" | "list";
 
 const TODAY_LAYOUT_STORAGE_KEY = "tasker.todayLayout";
+const TODAY_COLUMN_ORDER_STORAGE_KEY = "tasker.todayColumnOrder";
+
+function loadColumnOrder(): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(TODAY_COLUMN_ORDER_STORAGE_KEY) ?? "[]");
+    return Array.isArray(value) && value.every((id) => typeof id === "string") ? [...new Set<string>(value)] : [];
+  } catch {
+    return [];
+  }
+}
 
 function loadTodayLayout(): TodayLayout {
   try {
@@ -35,6 +45,27 @@ export function TodayViewShell(props: TodayViewShellProps) {
   const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
   const [completedOpen, setCompletedOpen] = useState(false);
   const [layout, setLayout] = useState<TodayLayout>(loadTodayLayout);
+  const [columnOrder, setColumnOrder] = useState<string[]>(loadColumnOrder);
+  const categoriesById = new Map(props.categories.map((category) => [category.id, category]));
+  const orderedIds = [...new Set([...columnOrder, ...categoriesById.keys()])].filter((id) => categoriesById.has(id));
+  const orderedCategories = orderedIds.map((id) => categoriesById.get(id)!);
+
+  function moveColumn(categoryId: string, direction: -1 | 1) {
+    const visibleIds = orderedIds.filter((id) => props.activeTasks.some((item) => item.category.id === id));
+    const visibleIndex = visibleIds.indexOf(categoryId);
+    const neighborId = visibleIds[visibleIndex + direction];
+    if (visibleIndex < 0 || !neighborId) return;
+    const nextOrder = [...orderedIds];
+    const from = nextOrder.indexOf(categoryId);
+    const to = nextOrder.indexOf(neighborId);
+    [nextOrder[from], nextOrder[to]] = [nextOrder[to], nextOrder[from]];
+    setColumnOrder(nextOrder);
+    try {
+      localStorage.setItem(TODAY_COLUMN_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+    } catch {
+      // Keep the selected order for this session when storage is unavailable.
+    }
+  }
 
   function changeLayout(nextLayout: TodayLayout) {
     setLayout(nextLayout);
@@ -62,7 +93,8 @@ export function TodayViewShell(props: TodayViewShellProps) {
             <TodayActiveColumns
               today={props.today}
               activeTasks={props.activeTasks}
-              categories={props.categories}
+              categories={orderedCategories}
+              onMoveColumn={moveColumn}
               expandedTaskIds={expandedTaskIds}
               onExpandedTaskIdsChange={setExpandedTaskIds}
               onComplete={props.onComplete}

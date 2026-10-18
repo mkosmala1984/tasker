@@ -23,7 +23,10 @@ export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComple
         <Group className="today-task-header" justify="space-between" align="flex-start" gap="md">
           <Stack gap={2}>
 
-            <Text className="today-task-title" fw={600}><span style={{backgroundColor: item.category.color, width: '16px', height: '16px', display: 'inline-block'}}></span> {item.task.title}</Text>
+            <Text className="today-task-title" fw={600}>
+              <span className="today-task-color" style={{ backgroundColor: item.category.color }} aria-hidden="true" />
+              <span>{item.task.title}</span>
+            </Text>
             <Text className="today-task-meta">
               {completionText}
             </Text>

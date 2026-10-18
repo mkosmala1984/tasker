@@ -74,7 +74,8 @@ button, input, select { font: inherit; }
 .today-empty { min-height: 180px; display: grid; align-content: center; }
 .today-completed { background: var(--color-bg-muted); border-color: var(--color-border-subtle); }
 .today-task-row { background: var(--color-bg-surface); border-color: var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); }
-.today-task-title { font-size: 23px; line-height: 1.2; }
+.today-task-title { display: flex; align-items: flex-start; gap: 7px; font-size: 23px; line-height: 1.2; }
+.today-task-color { flex: 0 0 16px; height: 16px; margin-top: 6px; }
 .today-task-meta { color: var(--color-text-muted); font-size: 15px; }
 .today-task-actions { min-width: 0; max-width: 100%; }
 .today-task-actions > * { flex: 0 0 auto; }
