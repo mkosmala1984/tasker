@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetTaskerStore, useTaskerStore } from "../../state/taskerStore";
@@ -95,9 +95,15 @@ describe("CalendarView", () => {
     await user.type(screen.getByLabelText("Odloz na date"), "2026-07-20");
     await user.click(screen.getByRole("button", { name: "Odloz Zadzwonic" }));
 
-    expect(useTaskerStore.getState().state.postponements[0]).toMatchObject({
-      fromDate: "2026-07-08",
-      toDate: "2026-07-20"
+    await waitFor(() => {
+      expect(useTaskerStore.getState().state.postponements[0]).toMatchObject({
+        fromDate: "2026-07-08",
+        toDate: "2026-07-20"
+      });
+      expect(screen.queryByText("Zadzwonic")).not.toBeInTheDocument();
     });
+    await user.click(screen.getByRole("button", { name: /^Poniedziałek, 20 lipca 2026/ }));
+    expect(screen.getByText("Zadzwonic")).toBeInTheDocument();
+    expect(screen.getByText("Odlozone")).toBeInTheDocument();
   });
 });

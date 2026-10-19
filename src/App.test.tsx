@@ -201,8 +201,10 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Wykonane" }));
 
-    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
-    expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
+      expect(screen.getByText("Brak zadan na dzisiaj")).toBeInTheDocument();
+    });
   });
 
   it("renders the today view without filters", async () => {
@@ -270,10 +272,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Odloz: Podlac rosliny" }));
     await user.click(screen.getByRole("button", { name: "Jutro" }));
 
-    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
-    const stored = JSON.stringify(useTaskerStore.getState().state);
-    expect(stored).toContain('"toDate":"2026-07-06"');
-    expect(stored).not.toContain("completedDate");
+    await waitFor(() => {
+      expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
+      expect(useTaskerStore.getState().state.postponements).toEqual([
+        expect.objectContaining({ taskId: "task-1", fromDate: "2026-07-05", toDate: "2026-07-06" })
+      ]);
+      expect(useTaskerStore.getState().state.completions).toEqual([]);
+    });
   });
 
   it("allows selecting a custom postpone date from the quick menu", async () => {
@@ -286,11 +291,13 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Wybierz date odlozenia: Podlac rosliny"), "2026-07-12");
     await user.click(screen.getByRole("button", { name: "Zatwierdz odlozenie: Podlac rosliny" }));
 
-    expect(screen.queryByRole("heading", { name: "Podlac rosliny" })).not.toBeInTheDocument();
-    const stored = JSON.stringify(useTaskerStore.getState().state);
-    expect(stored).toContain('"fromDate":"2026-07-05"');
-    expect(stored).toContain('"toDate":"2026-07-12"');
-    expect(stored).not.toContain("completedDate");
+    await waitFor(() => {
+      expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
+      expect(useTaskerStore.getState().state.postponements).toEqual([
+        expect.objectContaining({ taskId: "task-1", fromDate: "2026-07-05", toDate: "2026-07-12" })
+      ]);
+      expect(useTaskerStore.getState().state.completions).toEqual([]);
+    });
   });
 
   it("moves completed tasks into the completed-today section after a pending save", async () => {
@@ -355,9 +362,11 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Wykonane" }));
 
-    const stored = JSON.stringify(useTaskerStore.getState().state);
-    expect(stored).toContain('"scheduledDate":"2026-07-01"');
-    expect(stored).toContain('"completedDate":"2026-07-03"');
+    await waitFor(() => {
+      expect(useTaskerStore.getState().state.completions).toEqual([
+        expect.objectContaining({ taskId: "task-1", scheduledDate: "2026-07-01", completedDate: "2026-07-03" })
+      ]);
+    });
   });
 
   it("creates a one-time task from the separate tasks view", async () => {
@@ -375,7 +384,7 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Data zadania"), "2026-07-12");
     await user.click(screen.getByRole("button", { name: "Zapisz zadanie" }));
 
-    expect(screen.getByRole("heading", { name: "Zadania" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Zadania" })).toBeInTheDocument();
     expect(screen.getByText("Zaplacic rachunek")).toBeInTheDocument();
     expect(screen.getByText("Jednorazowe: 2026-07-12")).toBeInTheDocument();
   });
@@ -430,7 +439,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Dezaktywuj" }));
 
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
-    expect(screen.getByText("Nieaktywne")).toBeInTheDocument();
+    expect(await screen.findByText("Nieaktywne")).toBeInTheDocument();
   });
 
   it("manages categories from the Kategorie view", async () => {
@@ -443,8 +452,10 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Kolor kategorii"), "#40c057");
     await user.click(screen.getByRole("button", { name: "Dodaj kategorie" }));
 
-    expect(screen.getByText("Dom")).toBeInTheDocument();
-    expect(JSON.stringify(useTaskerStore.getState().state)).toContain("#40c057");
+    expect(await screen.findByText("Dom")).toBeInTheDocument();
+    expect(useTaskerStore.getState().state.categories).toEqual([
+      expect.objectContaining({ name: "Dom", color: "#40c057" })
+    ]);
   });
 
   it("adds, renames and removes an unused person from configuration", async () => {
@@ -490,13 +501,14 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
     await user.type(screen.getByLabelText("Nowy typ zadania"), "Termin");
     await user.click(screen.getByRole("button", { name: "Dodaj typ" }));
+    expect(await screen.findByText("Termin")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Nowy priorytet"), "Pilny");
     await user.clear(screen.getByLabelText("Kolor priorytetu"));
     await user.type(screen.getByLabelText("Kolor priorytetu"), "#fa5252");
     await user.click(screen.getByRole("button", { name: "Dodaj priorytet" }));
 
     expect(screen.getByText("Termin")).toBeInTheDocument();
-    expect(screen.getByText("Pilny")).toBeInTheDocument();
+    expect(await screen.findByText("Pilny")).toBeInTheDocument();
   });
 
   it("shows completion history as a filterable list without statistics", async () => {
@@ -588,6 +600,7 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Nazwa kategorii"), "Dom");
     await user.click(screen.getByRole("button", { name: "Dodaj kategorie" }));
 
+    expect(await screen.findByText("Dom")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Dane" }));
     const badFile = new File(["{bad-json"], "bad.json", { type: "application/json" });
     await user.upload(screen.getByLabelText("Plik importu"), badFile);
