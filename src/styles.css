@@ -54,6 +54,10 @@ button, input, select { font: inherit; }
 .task-choice[data-tone="3"] { background: var(--color-danger-soft); }
 .task-choice[aria-pressed="true"] { border: 2px solid var(--color-accent); padding: 8px 15px; font-weight: 600; }
 .task-choice[aria-pressed="true"] > span { color: var(--color-accent); }
+.task-choice[data-category-color] { background: color-mix(in srgb, var(--task-choice-color) 18%, var(--color-bg-surface)); }
+.task-choice[data-category-color][aria-pressed="true"] { border-color: var(--task-choice-color); }
+.task-choice[data-category-color][aria-pressed="true"] > span { color: var(--task-choice-color); }
+.task-choice-color { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 50%; background: var(--task-choice-color); }
 .task-choice:hover { box-shadow: inset 0 0 0 1px var(--color-accent); }
 .task-field-error { color: var(--color-danger); font-size: 14px; margin: 8px 0 0; }
 .task-form-details summary { cursor: pointer; font-size: 16px; color: var(--color-text-secondary); }

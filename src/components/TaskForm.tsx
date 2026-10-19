@@ -19,9 +19,9 @@ type Props = {
   onCancel: () => void;
 };
 
-function activeOptions<T extends { id: string; name: string; active?: boolean; order?: number }>(items: T[]) {
+function activeOptions<T extends { id: string; name: string; active?: boolean; order?: number; color?: string }>(items: T[]) {
   return [...items].filter(item => item.active !== false).sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
-    .map(item => ({ value: item.id, label: item.name }));
+    .map(item => ({ value: item.id, label: item.name, color: item.color }));
 }
 
 export function TaskForm({ state, today, initialDate, task, submitLabel, onSubmit, onSubmitAndContinue, onCancel }: Props) {
@@ -97,7 +97,7 @@ export function TaskForm({ state, today, initialDate, task, submitLabel, onSubmi
           <div className="task-form-choices">
             <TaskChoices label="Typ zadania" value={values.taskTypeId} error={errors.taskTypeId} options={activeOptions(state.taskTypes)} onChange={taskTypeId => setValues({ ...values, taskTypeId })} />
             <TaskChoices label="Tryb" value={values.mode} options={[{ value: "oneTime", label: "Jednorazowe" }, { value: "recurring", label: "Cykliczne" }]} onChange={mode => setValues({ ...values, mode })} />
-            <TaskChoices label="Kategoria" tone="category" value={values.categoryId} error={errors.categoryId} options={activeOptions(state.categories)} onChange={categoryId => setValues({ ...values, categoryId })} />
+            <TaskChoices label="Kategoria" value={values.categoryId} error={errors.categoryId} options={activeOptions(state.categories)} onChange={categoryId => setValues({ ...values, categoryId })} />
             <TaskChoices label="Osoba" tone="person" value={values.assigneeId} error={errors.assigneeId} options={[{ value: "", label: UNASSIGNED_ASSIGNEE_NAME }, ...activeOptions(state.assignees.filter(person => !isUnassignedAssigneeName(person.name)))]} onChange={assigneeId => setValues({ ...values, assigneeId })} />
             {values.mode === "recurring" ? <>
               <TaskChoices label="Reguła powtarzania" value={values.recurrenceType} options={recurrenceOptions} onChange={recurrenceType => setValues({ ...values, recurrenceType })} />
