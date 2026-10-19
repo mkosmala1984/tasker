@@ -14,6 +14,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import {
   createEmptyTaskFormValues,
+  isUnassignedAssigneeName,
   recurrenceOptions,
   taskFormValuesToDraft,
   taskToFormValues,
@@ -52,7 +53,7 @@ function priorityOptions(state: AppState) {
 function assigneeOptions(state: AppState) {
   return [
     { value: "", label: UNASSIGNED_ASSIGNEE_NAME },
-    ...activeOptions(state.assignees),
+    ...activeOptions(state.assignees.filter((assignee) => !isUnassignedAssigneeName(assignee.name))),
   ];
 }
 

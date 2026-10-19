@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { AppState } from "../../domain/types";
@@ -32,6 +32,26 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 describe("TaskForm", () => {
+  it.each([false, true])("shows one unassigned option with a saved placeholder (editing: %s)", async (editing) => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const savedState = { ...state, assignees: [...state.assignees, { id: "unassigned", name: "Bez osoby" }] };
+    const task = {
+      id: "task-1", title: "Przeglad", categoryId: "cat-home", assigneeId: "unassigned",
+      taskTypeId: DEFAULT_TASK_TYPE_ID, priorityId: DEFAULT_PRIORITY_ID,
+      schedule: { mode: "oneTime" as const, date: "2026-07-07" }, active: true,
+      createdAt: "2026-07-07T08:00:00Z", updatedAt: "2026-07-07T08:00:00Z"
+    };
+    render(<MantineProvider><TaskForm state={savedState} task={editing ? task : undefined} today="2026-07-07" submitLabel="Zapisz zadanie" onSubmit={onSubmit} onCancel={vi.fn()} /></MantineProvider>);
+    const select = screen.getByLabelText("Osoba");
+    expect(within(select).getAllByRole("option", { name: "Bez osoby" })).toHaveLength(1);
+    expect(select).toHaveValue("");
+    expect(within(select).getByRole("option", { name: "Ola" })).toBeInTheDocument();
+    if (!editing) await user.type(screen.getByLabelText("Nazwa zadania"), "Przeglad");
+    await user.click(screen.getByRole("button", { name: "Zapisz zadanie" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ assigneeName: "Bez osoby" }));
+  });
+
   it("submits a one-time task draft", async () => {
     const user = userEvent.setup();
     const onSubmit = renderForm();

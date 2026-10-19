@@ -19,6 +19,10 @@ export type TaskFormErrors = Partial<Record<keyof TaskFormValues | "dictionary",
 
 export const UNASSIGNED_ASSIGNEE_NAME = "Bez osoby";
 
+export function isUnassignedAssigneeName(name: string): boolean {
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("pl") === UNASSIGNED_ASSIGNEE_NAME.toLocaleLowerCase("pl");
+}
+
 export const recurrenceOptions: Array<{ value: RecurrenceRule["type"]; label: string }> = [
   { value: "daily", label: "Codziennie" },
   { value: "everyNDays", label: "Co N dni" },
@@ -75,7 +79,7 @@ export function taskToFormValues(task: Task, state: AppState): TaskFormValues {
     recurrenceType: recurrence.type,
     intervalDays: recurrence.type === "everyNDays" ? recurrence.intervalDays : 2,
     categoryId: state.categories.some((category) => category.id === task.categoryId) ? task.categoryId : "",
-    assigneeId: state.assignees.some((assignee) => assignee.id === task.assigneeId) ? task.assigneeId : "",
+    assigneeId: state.assignees.some((assignee) => assignee.id === task.assigneeId && !isUnassignedAssigneeName(assignee.name)) ? task.assigneeId : "",
     taskTypeId: state.taskTypes.some((taskType) => taskType.id === task.taskTypeId) ? task.taskTypeId : "",
     priorityId: state.priorities.some((priority) => priority.id === task.priorityId) ? task.priorityId : "",
     active: task.active
