@@ -21,6 +21,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("durable tasker store", () => {
+  it("persists person edits across sessions and journals them for synchronization", async () => {
+    const name = crypto.randomUUID();
+    const a = await session(name);
+    await a.getState().addAssignee({ name: "Anna" });
+    const personId = a.getState().state.assignees[0].id;
+    await a.getState().updateAssignee(personId, { name: "Ania" });
+    const b = await session(name);
+    expect(b.getState().state.assignees).toEqual([{ id: personId, name: "Ania" }]);
+    expect(b.getState().pendingCount).toBe(2);
+    await b.getState().removeAssignee(personId);
+    await a.getState().refresh();
+    expect(a.getState().state.assignees).toEqual([]);
+    expect(a.getState().pendingCount).toBe(3);
+  });
   it("refreshes the current version after rejecting a stale import so it can be reconfirmed", async () => {
     const name = crypto.randomUUID(),
       a = await session(name),

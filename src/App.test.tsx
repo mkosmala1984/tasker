@@ -410,6 +410,42 @@ describe("App", () => {
     expect(JSON.stringify(useTaskerStore.getState().state)).toContain("#40c057");
   });
 
+  it("adds, renames and removes an unused person from configuration", async () => {
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
+    await user.type(screen.getByLabelText("Nazwa osoby"), "  Anna  ");
+    await user.click(screen.getByRole("button", { name: "Dodaj osobę" }));
+    const row = (await screen.findByText("Anna")).closest("tr")!;
+    await user.click(within(row).getByRole("button", { name: "Edytuj" }));
+    await user.clear(screen.getByLabelText("Nazwa osoby Anna"));
+    await user.type(screen.getByLabelText("Nazwa osoby Anna"), "Ania");
+    await user.click(within(row).getByRole("button", { name: "Zapisz" }));
+    expect(await screen.findByText("Ania")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Usuń" }));
+    await waitFor(() => expect(screen.queryByText("Ania")).not.toBeInTheDocument());
+    expect(useTaskerStore.getState().state.assignees).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: "Ania" })]));
+  });
+
+  it("keeps a referenced person's identity when renamed and blocks removal", async () => {
+    seedTaskState();
+    await resetTaskerStore();
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Konfiguracja" }));
+    const person = useTaskerStore.getState().state.assignees[0];
+    const row = screen.getByText(person.name).closest("tr")!;
+    expect(within(row).getByRole("button", { name: "Usuń" })).toBeDisabled();
+    await user.click(within(row).getByRole("button", { name: "Edytuj" }));
+    await user.clear(screen.getByLabelText(`Nazwa osoby ${person.name}`));
+    await user.type(screen.getByLabelText(`Nazwa osoby ${person.name}`), "Nowa osoba");
+    await user.click(within(row).getByRole("button", { name: "Zapisz" }));
+    expect(await screen.findByText("Nowa osoba")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Zadania" }));
+    expect(screen.getByText("Nowa osoba")).toBeInTheDocument();
+    expect(useTaskerStore.getState().state.tasks[0].assigneeId).toBe(person.id);
+  });
+
   it("manages task type and priority dictionaries from configuration", async () => {
     renderApp();
     const user = userEvent.setup();

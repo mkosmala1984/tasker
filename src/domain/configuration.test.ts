@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppState } from "./types";
+import { addAssignee, updateAssignee, removeAssignee } from "./configuration";
 import {
   addCategory,
   addPriority,
@@ -28,6 +29,35 @@ function ids(...values: string[]) {
   let index = 0;
   return () => values[index++];
 }
+
+describe("configuration assignee mutations", () => {
+  it("normalizes names and preserves identity on rename", () => {
+    const added = addAssignee(baseState, { name: " Anna   Nowak " }, ids("person-1"));
+    expect(added.assignees).toEqual([{ id: "person-1", name: "Anna Nowak" }]);
+    expect(updateAssignee(added, "person-1", { name: " Ania " }).assignees).toEqual([{ id: "person-1", name: "Ania" }]);
+    expect(baseState.assignees).toEqual([]);
+  });
+
+  it("rejects blank and duplicate names on creation and rename", () => {
+    const initial = { ...baseState, assignees: [{ id: "a", name: "Anna Nowak" }, { id: "b", name: "Ola" }] };
+    for (const name of ["  ", " anna   NOWAK "]) {
+      expect(() => addAssignee(initial, { name }, ids("c"))).toThrow();
+      expect(() => updateAssignee(initial, "b", { name })).toThrow();
+    }
+    expect(updateAssignee(initial, "a", { name: "Anna Nowak" }).assignees).toEqual(initial.assignees);
+  });
+
+  it("removes only unused people, including protection for inactive tasks", () => {
+    const initial: AppState = {
+      ...baseState,
+      assignees: [{ id: "a", name: "Anna" }, { id: "b", name: "Ola" }],
+      tasks: [{ id: "task", title: "Test", categoryId: "cat", assigneeId: "a", taskTypeId: "type-default", priorityId: "priority-normal", schedule: { mode: "oneTime", date: "2026-10-19" }, active: false, createdAt: "2026-10-19T08:00:00Z", updatedAt: "2026-10-19T08:00:00Z" }]
+    };
+    expect(removeAssignee(initial, "b").assignees).toEqual([{ id: "a", name: "Anna" }]);
+    expect(() => removeAssignee(initial, "a")).toThrow(/zadania/);
+    expect(initial.assignees).toHaveLength(2);
+  });
+});
 
 describe("configuration category mutations", () => {
   it("adds a category with trimmed name and hex color", () => {

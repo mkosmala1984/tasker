@@ -4,6 +4,7 @@ import { CategoryManager } from "./components/CategoryManager";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
 import { DictionaryManager } from "./components/DictionaryManager";
+import { AssigneeManager } from "./components/AssigneeManager";
 import { HistoryView } from "./components/HistoryView";
 import { StatisticsView } from "./components/StatisticsView";
 import { TodayViewShell } from "./components/today/TodayViewShell";
@@ -54,6 +55,9 @@ export default function App({ now = new Date() }: Props) {
   const view = useTaskerStore((store) => store.view);
   const setView = useTaskerStore((store) => store.setView);
   const addCategory = useTaskerStore((store) => store.addCategory);
+  const addAssignee = useTaskerStore((store) => store.addAssignee);
+  const updateAssignee = useTaskerStore((store) => store.updateAssignee);
+  const removeAssignee = useTaskerStore((store) => store.removeAssignee);
   const updateCategory = useTaskerStore((store) => store.updateCategory);
   const deactivateCategory = useTaskerStore((store) => store.deactivateCategory);
   const addTaskType = useTaskerStore((store) => store.addTaskType);
@@ -178,6 +182,13 @@ export default function App({ now = new Date() }: Props) {
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <Stack gap="xl">
               <Title order={2}>Konfiguracja zadan</Title>
+              <AssigneeManager
+                assignees={state.assignees}
+                referencedIds={new Set(state.tasks.map((task) => task.assigneeId))}
+                onAdd={addAssignee}
+                onUpdate={updateAssignee}
+                onRemove={removeAssignee}
+              />
               <DictionaryManager
                 title="Typy zadan"
                 nameLabel="Nowy typ zadania"

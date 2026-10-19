@@ -84,6 +84,25 @@ function moveOrderedItem<T extends { id: string; order: number }>(items: T[], id
     .sort((left, right) => left.order - right.order);
 }
 
+export function addAssignee(state: AppState, input: DictionaryInput, nextId: IdFactory): AppState {
+  const name = assertName(input.name);
+  assertUniqueName(state.assignees, name, undefined, "Osoba o tej nazwie już istnieje.");
+  return { ...state, assignees: [...state.assignees, { id: nextId(), name }] };
+}
+
+export function updateAssignee(state: AppState, assigneeId: string, input: DictionaryInput): AppState {
+  const name = assertName(input.name);
+  assertUniqueName(state.assignees, name, assigneeId, "Osoba o tej nazwie już istnieje.");
+  return { ...state, assignees: state.assignees.map((person) => person.id === assigneeId ? { ...person, name } : person) };
+}
+
+export function removeAssignee(state: AppState, assigneeId: string): AppState {
+  if (state.tasks.some((task) => task.assigneeId === assigneeId)) {
+    throw new Error("Nie można usunąć osoby, która ma przypisane zadania.");
+  }
+  return { ...state, assignees: state.assignees.filter((person) => person.id !== assigneeId) };
+}
+
 export function addCategory(state: AppState, input: CategoryInput, nextId: IdFactory): AppState {
   const name = assertName(input.name);
   const color = assertHexColor(input.color);

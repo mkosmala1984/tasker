@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import {
+  addAssignee as addAssigneeDomain,
+  updateAssignee as updateAssigneeDomain,
+  removeAssignee as removeAssigneeDomain,
   addCategory as addCategoryDomain,
   addPriority as addPriorityDomain,
   addTaskType as addTaskTypeDomain,
@@ -87,6 +90,9 @@ export type TaskerStore = {
   openTaskEdit: (id: string) => void;
   closeTaskEditor: () => void;
   addCategory: (input: CategoryInput) => Promise<void>;
+  addAssignee: (input: DictionaryInput) => Promise<void>;
+  updateAssignee: (id: string, input: DictionaryInput) => Promise<void>;
+  removeAssignee: (id: string) => Promise<void>;
   updateCategory: (id: string, input: CategoryInput) => Promise<void>;
   deactivateCategory: (id: string) => Promise<void>;
   addTaskType: (input: DictionaryInput) => Promise<void>;
@@ -255,6 +261,12 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
         mutate((s) => deactivateCategoryDomain(s, key)),
       addTaskType: (input) =>
         mutate((s) => addTaskTypeDomain(s, input, () => id("task-type"))),
+      addAssignee: (input) =>
+        mutate((s) => addAssigneeDomain(s, input, () => id("person"))),
+      updateAssignee: (key, input) =>
+        mutate((s) => updateAssigneeDomain(s, key, input)),
+      removeAssignee: (key) =>
+        mutate((s) => removeAssigneeDomain(s, key)),
       updateTaskType: (key, input) =>
         mutate((s) => updateTaskTypeDomain(s, key, input)),
       setTaskTypeActive: (key, active) =>
