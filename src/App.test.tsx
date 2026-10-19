@@ -6,6 +6,7 @@ import App from "./App";
 import { getTodayString } from "./domain/dates";
 import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID, STORAGE_KEY } from "./storage/taskerStorage";
 import { resetTaskerStore, useTaskerStore } from "./state/taskerStore";
+import { SyncJournal } from "./storage/syncJournal";
 
 function renderApp({ now = new Date(2026, 6, 5, 9, 0) }: { now?: Date } = {}) {
   useTaskerStore.getState().setSelectedCalendarDate(getTodayString(now));
@@ -292,18 +293,34 @@ describe("App", () => {
     expect(stored).not.toContain("completedDate");
   });
 
-  it("moves completed tasks into the completed-today section immediately", async () => {
+  it("moves completed tasks into the completed-today section after a pending save", async () => {
     await seedTodayTaskState();
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Wykonane" }));
+    let releaseSave!: () => void;
+    const pendingSave = new Promise<void>(resolve => { releaseSave = resolve; });
+    const append = SyncJournal.prototype.append;
+    const appendSpy = vi.spyOn(SyncJournal.prototype, "append").mockImplementationOnce(async function (this: SyncJournal, ...args) {
+      await pendingSave;
+      return append.apply(this, args);
+    });
+    try {
+      await user.click(screen.getByRole("button", { name: "Wykonane" }));
+      expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
+      releaseSave();
 
-    expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByText("Podlac rosliny")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" })).toBeInTheDocument();
+      });
 
-    await user.click(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" }));
-    expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" }));
+      expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
+    } finally {
+      releaseSave();
+      appendSpy.mockRestore();
+    }
   });
 
   it("keeps recurring completion cycle based on the actual completion date", async () => {
