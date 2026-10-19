@@ -89,8 +89,8 @@ async function addDailyTask(title: string, category: string, assignee: string) {
 
   const form = screen.getByRole("form", { name: "Dodaj zadanie" });
   await user.type(within(form).getByLabelText(/Nazwa zadania/), title);
-  await user.selectOptions(within(form).getByLabelText("Kategoria"), "cat-home");
-  await user.selectOptions(within(form).getByLabelText("Osoba"), "person-ola");
+  await user.click(within(within(form).getByRole("group", { name: "Kategoria" })).getByRole("button", { name: category }));
+  await user.click(within(within(form).getByRole("group", { name: "Osoba" })).getByRole("button", { name: assignee }));
   await user.click(within(form).getByRole("button", { name: "Zapisz zadanie" }));
   await waitFor(() => {
     expect(screen.queryByRole("alert", { name: "Zapis przerwany" })?.textContent).toBeUndefined();
@@ -363,6 +363,26 @@ describe("App", () => {
     expect(screen.getByText("Jednorazowe: 2026-07-12")).toBeInTheDocument();
   });
 
+  it("adds consecutive tasks without closing the form or losing earlier tasks", async () => {
+    seedTaskState();
+    await resetTaskerStore();
+    renderApp({ now: new Date("2026-07-07T10:00:00.000Z") });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Zadania" }));
+    await user.click(screen.getByRole("button", { name: "+ Dodaj zadanie" }));
+    for (const title of ["Pierwsze nowe", "Drugie nowe"]) {
+      await user.type(screen.getByLabelText("Nazwa zadania"), title);
+      await user.click(screen.getByRole("button", { name: "Zapisz i dodaj kolejne" }));
+      await waitFor(() => expect(screen.getByLabelText("Nazwa zadania")).toHaveValue(""));
+      expect(screen.getByLabelText("Nazwa zadania")).toHaveFocus();
+      expect(screen.getByRole("heading", { name: "Dodaj zadanie" })).toBeVisible();
+    }
+    await user.click(screen.getByRole("button", { name: "Anuluj" }));
+    expect(useTaskerStore.getState().state.tasks.map(task => task.title)).toEqual(expect.arrayContaining(["Podlac rosliny", "Pierwsze nowe", "Drugie nowe"]));
+    expect(screen.getByText("Pierwsze nowe")).toBeVisible();
+    expect(screen.getByText("Drugie nowe")).toBeVisible();
+  });
+
   it("edits a task into an every-N-days recurring task", async () => {
     seedTaskState();
     await resetTaskerStore();
@@ -373,13 +393,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Edytuj" }));
     await user.clear(screen.getByLabelText("Nazwa zadania"));
     await user.type(screen.getByLabelText("Nazwa zadania"), "Trening");
-    await user.selectOptions(screen.getByLabelText("Tryb"), "recurring");
-    await user.selectOptions(screen.getByLabelText("Regula powtarzania"), "everyNDays");
+    await user.click(screen.getByRole("button", { name: "Cykliczne" }));
+    await user.click(screen.getByRole("button", { name: "Co N dni" }));
     await user.clear(screen.getByLabelText("Liczba dni"));
     await user.type(screen.getByLabelText("Liczba dni"), "3");
     await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
 
-    expect(screen.getByText("Trening")).toBeInTheDocument();
+    expect(await screen.findByText("Trening")).toBeInTheDocument();
     expect(screen.getByText("Cykliczne od 2026-07-07: co 3 dni")).toBeInTheDocument();
   });
 

@@ -1,7 +1,7 @@
 import { MantineProvider } from "@mantine/core";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../../domain/types";
 import { DEFAULT_PRIORITY_ID, DEFAULT_TASK_TYPE_ID } from "../../storage/taskerStorage";
 import { TaskForm } from "../TaskForm";
@@ -32,6 +32,7 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 describe("TaskForm", () => {
+  beforeEach(() => localStorage.clear());
   it.each([false, true])("shows one unassigned option with a saved placeholder (editing: %s)", async (editing) => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
@@ -43,10 +44,10 @@ describe("TaskForm", () => {
       createdAt: "2026-07-07T08:00:00Z", updatedAt: "2026-07-07T08:00:00Z"
     };
     render(<MantineProvider><TaskForm state={savedState} task={editing ? task : undefined} today="2026-07-07" submitLabel="Zapisz zadanie" onSubmit={onSubmit} onCancel={vi.fn()} /></MantineProvider>);
-    const select = screen.getByLabelText("Osoba");
-    expect(within(select).getAllByRole("option", { name: "Bez osoby" })).toHaveLength(1);
-    expect(select).toHaveValue("");
-    expect(within(select).getByRole("option", { name: "Ola" })).toBeInTheDocument();
+    const select = screen.getByRole("group", { name: "Osoba" });
+    expect(within(select).getAllByRole("button", { name: "Bez osoby" })).toHaveLength(1);
+    expect(within(select).getByRole("button", { name: "Bez osoby" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(select).getByRole("button", { name: "Ola" })).toBeInTheDocument();
     if (!editing) await user.type(screen.getByLabelText("Nazwa zadania"), "Przeglad");
     await user.click(screen.getByRole("button", { name: "Zapisz zadanie" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ assigneeName: "Bez osoby" }));
@@ -57,8 +58,9 @@ describe("TaskForm", () => {
     const onSubmit = renderForm();
 
     await user.type(screen.getByLabelText("Nazwa zadania"), "Zaplacic rachunek");
-    await user.selectOptions(screen.getByLabelText("Typ zadania"), "type-deadline");
-    await user.selectOptions(screen.getByLabelText("Osoba"), "person-ola");
+    await user.click(screen.getByRole("button", { name: "Termin" }));
+    await user.click(screen.getByRole("button", { name: "Ola" }));
+    await user.click(screen.getByText("Priorytet i aktywność"));
     await user.selectOptions(screen.getByLabelText("Priorytet"), "priority-high");
     await user.clear(screen.getByLabelText("Data zadania"));
     await user.type(screen.getByLabelText("Data zadania"), "2026-07-12");
@@ -95,13 +97,13 @@ describe("TaskForm", () => {
     const user = userEvent.setup();
     renderForm();
 
-    expect(screen.queryByLabelText("Regula powtarzania")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Reguła powtarzania" })).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Tryb"), "recurring");
+    await user.click(screen.getByRole("button", { name: "Cykliczne" }));
     expect(screen.getByLabelText("Data startu")).toBeInTheDocument();
-    expect(screen.getByLabelText("Regula powtarzania")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Reguła powtarzania" })).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Regula powtarzania"), "everyNDays");
+    await user.click(screen.getByRole("button", { name: "Co N dni" }));
     expect(screen.getByLabelText("Liczba dni")).toBeInTheDocument();
   });
 
@@ -110,8 +112,8 @@ describe("TaskForm", () => {
     const onSubmit = renderForm();
 
     await user.clear(screen.getByLabelText("Nazwa zadania"));
-    await user.selectOptions(screen.getByLabelText("Tryb"), "recurring");
-    await user.selectOptions(screen.getByLabelText("Regula powtarzania"), "everyNDays");
+    await user.click(screen.getByRole("button", { name: "Cykliczne" }));
+    await user.click(screen.getByRole("button", { name: "Co N dni" }));
     await user.clear(screen.getByLabelText("Data startu"));
     await user.clear(screen.getByLabelText("Liczba dni"));
     await user.type(screen.getByLabelText("Liczba dni"), "0");

@@ -26,9 +26,9 @@ export function isUnassignedAssigneeName(name: string): boolean {
 export const recurrenceOptions: Array<{ value: RecurrenceRule["type"]; label: string }> = [
   { value: "daily", label: "Codziennie" },
   { value: "everyNDays", label: "Co N dni" },
-  { value: "weekly", label: "Co tydzien" },
-  { value: "monthly", label: "Co miesiac" },
-  { value: "quarterly", label: "Co kwartal" }
+  { value: "weekly", label: "Co tydzień" },
+  { value: "monthly", label: "Co miesiąc" },
+  { value: "quarterly", label: "Co kwartał" }
 ];
 
 function firstActive<T extends { id: string; active?: boolean; order?: number }>(items: T[]): T | undefined {

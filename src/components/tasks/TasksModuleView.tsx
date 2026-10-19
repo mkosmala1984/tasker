@@ -19,9 +19,9 @@ export function TasksModuleView({ today }: Props) {
   const updateTask = useTaskerStore((store) => store.updateTask);
   const deactivateTask = useTaskerStore((store) => store.deactivateTask);
 
-  async function handleCreate(draft: TaskDraft, base: AppState) {
+  async function handleCreate(draft: TaskDraft, base: AppState, keepOpen = false) {
     await addTask(draft, undefined, base);
-    closeTaskEditor();
+    if (!keepOpen) closeTaskEditor();
   }
 
   async function handleUpdate(taskId: string, draft: TaskDraft, base: AppState) {
@@ -30,7 +30,7 @@ export function TasksModuleView({ today }: Props) {
   }
 
   return (
-    <Paper withBorder p="lg" radius="md" shadow="xs">
+    <Paper withBorder p={{ base: "sm", sm: "lg" }} radius="md" shadow="xs">
       {taskEditorTaskId !== undefined ? (
         <TaskEditorView
           key={taskEditorTaskId ?? "create"}

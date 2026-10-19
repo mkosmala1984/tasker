@@ -8,7 +8,7 @@ type Props = {
   today: string;
   initialDate?: string;
   taskId?: string | null;
-  onCreate: (draft: TaskDraft, base: AppState) => void | Promise<void>;
+  onCreate: (draft: TaskDraft, base: AppState, keepOpen?: boolean) => void | Promise<void>;
   onUpdate: (taskId: string, draft: TaskDraft, base: AppState) => void | Promise<void>;
   onCancel: () => void;
 };
@@ -16,7 +16,6 @@ type Props = {
 export function TaskEditorView({ state, today, initialDate, taskId, onCreate, onUpdate, onCancel }: Props) {
   const [editingBase] = useState(() => structuredClone(state));
   const task = taskId ? editingBase.tasks.find((item) => item.id === taskId) : undefined;
-  const createDate = initialDate ?? today;
 
   if (taskId && !task) {
     return (
@@ -41,10 +40,12 @@ export function TaskEditorView({ state, today, initialDate, taskId, onCreate, on
       </Group>
       <TaskForm
         state={editingBase}
-        today={task ? today : createDate}
+        today={today}
+        initialDate={initialDate}
         task={task}
         submitLabel={task ? "Zapisz zmiany" : "Zapisz zadanie"}
         onCancel={onCancel}
+        onSubmitAndContinue={task ? undefined : async (draft) => { await onCreate(draft, editingBase, true); }}
         onSubmit={async (draft) => {
           if (task) {
             await onUpdate(task.id, draft, editingBase);

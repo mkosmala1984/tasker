@@ -37,6 +37,46 @@ html, body { min-width: 320px; }
 body { margin: 0; background: var(--color-bg-app); color: var(--color-text-primary); font-family: Inter, Manrope, ui-sans-serif, system-ui, sans-serif; }
 button, input, select { font: inherit; }
 :focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.task-form { background: var(--color-bg-surface); color: var(--color-text-primary); font-size: 18px; }
+.task-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 24px; }
+.task-form-fields:disabled { opacity: .65; }
+.task-form-fields:disabled button { cursor: wait; }
+.task-form-columns { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 36px; align-items: start; }
+.task-form-choices { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.task-title-input input { font-size: 22px; min-height: 54px; }
+.task-form .mantine-InputWrapper-label, .task-form .mantine-Checkbox-label { font-size: 17px; }
+.task-choice-group { margin: 0; padding: 0; border: 0; min-width: 0; }
+.task-choice-group legend { font-size: 17px; font-weight: 600; padding: 0; margin-bottom: 10px; }
+.task-choice-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.task-choice { border: 1px solid var(--color-border-default); background: var(--color-accent-soft); color: var(--color-text-primary); border-radius: 24px; padding: 9px 16px; min-height: 46px; font-size: 18px; cursor: pointer; overflow-wrap: anywhere; max-width: 100%; }
+.task-choice[data-tone="1"] { background: var(--color-warning-soft); }
+.task-choice[data-tone="2"] { background: var(--color-info-soft); }
+.task-choice[data-tone="3"] { background: var(--color-danger-soft); }
+.task-choice[aria-pressed="true"] { border: 2px solid var(--color-accent); padding: 8px 15px; font-weight: 600; }
+.task-choice[aria-pressed="true"] > span { color: var(--color-accent); }
+.task-choice:hover { box-shadow: inset 0 0 0 1px var(--color-accent); }
+.task-field-error { color: var(--color-danger); font-size: 14px; margin: 8px 0 0; }
+.task-form-details summary { cursor: pointer; font-size: 16px; color: var(--color-text-secondary); }
+.task-date-panel { min-width: 0; display: grid; gap: 14px; }
+.task-date-heading { font-size: 14px; font-weight: 600; color: var(--color-accent); text-transform: uppercase; letter-spacing: .06em; }
+.task-selected-date { font-size: 22px; font-weight: 600; margin: 0; }
+.task-calendar { background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); border-radius: 14px; padding: 16px; }
+.task-calendar button { color: var(--color-text-primary); cursor: pointer; }
+.task-calendar-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 17px; font-weight: 600; margin-bottom: 14px; }
+.task-calendar-header button { width: 40px; min-height: 40px; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: 8px; font-size: 24px; flex-shrink: 0; }
+.task-date-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.task-date-shortcuts button { border: 1px solid var(--color-border-default); border-radius: 8px; background: var(--color-bg-surface); padding: 6px 9px; font-size: 14px; min-height: 36px; }
+.task-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.task-calendar-weekday { font-size: 13px; color: var(--color-text-secondary); padding: 6px 0; }
+.task-calendar-grid button { border: 0; background: transparent; padding: 4px 0; border-radius: 8px; min-width: 0; min-height: 40px; font-size: 17px; }
+.task-calendar-grid button[aria-current="date"] { box-shadow: inset 0 0 0 1px var(--color-accent); }
+.task-calendar-grid button[aria-pressed="true"] { background: var(--color-accent); color: var(--color-text-on-accent); font-weight: 600; }
+.task-calendar-grid button:hover:enabled { box-shadow: inset 0 0 0 2px var(--color-accent); }
+.task-calendar button:disabled { opacity: .35; cursor: not-allowed; }
+.task-calendar-caption { font-size: 14px; color: var(--color-text-secondary); margin: 12px 0 0; }
+.task-form-actions { border-top: 1px solid var(--color-border-subtle); padding-top: 20px; }
+@media (max-width: 850px) { .task-form-columns { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; } }
+@media (max-width: 680px) { .task-form-columns { grid-template-columns: minmax(0, 1fr); } .task-date-panel { width: 100%; max-width: 380px; } .task-form { padding: 16px; } .task-form-actions .mantine-Button-root { white-space: normal; height: auto; min-height: 48px; padding-block: 10px; } }
 .app-shell { min-height: 100vh; }
 .app-frame { max-width: 1440px; margin: 0 auto; padding: var(--space-8); }
 .app-frame:has([data-today-layout="columns"]) { width: 100%; max-width: none; }
