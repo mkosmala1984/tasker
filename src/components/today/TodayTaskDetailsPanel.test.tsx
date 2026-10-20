@@ -24,7 +24,8 @@ function renderPanel(schedule: TaskSchedule) {
     priority: { id: "priority-normal", name: "Normalny", active: true, order: 0, color: "#868e96" },
     scheduledDate: "2026-08-02",
     isOverdue: false,
-    completionCount: 0
+    completionCount: 1,
+    lastCompletedDate: "2026-08-01"
   };
 
   render(
@@ -40,6 +41,8 @@ describe("TodayTaskDetailsPanel", () => {
 
     expect(screen.getByText("Częstotliwość")).toBeInTheDocument();
     expect(screen.getByText("Jednorazowo")).toBeInTheDocument();
+    expect(screen.getByText("Ostatnio wykonane")).toBeInTheDocument();
+    expect(screen.getByText("2026-08-01")).toBeInTheDocument();
   });
 
   it("shows an every-N-days frequency", () => {

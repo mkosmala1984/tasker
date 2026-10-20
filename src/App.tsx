@@ -155,6 +155,7 @@ export default function App({ now = new Date() }: Props) {
                 activeTasks={todayGroup.active}
                 completedToday={todayGroup.completedToday}
                 categories={state.categories}
+                assignees={state.assignees}
                 onAdd={handleCreateTask}
                 onComplete={handleCompleteTask}
                 onPostponeToDate={handlePostponeTaskToDate}

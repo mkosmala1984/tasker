@@ -248,15 +248,16 @@ describe("App", () => {
     const user = userEvent.setup();
 
     expect(screen.getByText("Podlac rosliny")).toBeInTheDocument();
-    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
+    expect(screen.queryByText("Jeszcze nie wykonano")).not.toBeInTheDocument();
     expect(screen.queryByText("Kategoria")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Pokaz szczegoly: Podlac rosliny" }));
 
+    expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
     expect(screen.getByText("Kategoria")).toBeInTheDocument();
     expect(screen.getByText("Dom", { selector: ".today-task-detail-value" })).toBeInTheDocument();
     expect(screen.getByText("Osoba")).toBeInTheDocument();
-    expect(screen.getByText("Ola")).toBeInTheDocument();
+    expect(screen.getByText("Ola", { selector: ".today-task-detail-value" })).toBeInTheDocument();
   });
 
   it("shows the empty state when there are no active tasks", () => {
@@ -269,7 +270,7 @@ describe("App", () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Odloz: Podlac rosliny" }));
+    await user.click(screen.getByRole("button", { name: "Odłóż: Podlac rosliny" }));
     await user.click(screen.getByRole("button", { name: "Jutro" }));
 
     await waitFor(() => {
@@ -286,7 +287,7 @@ describe("App", () => {
     renderApp();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Odloz: Podlac rosliny" }));
+    await user.click(screen.getByRole("button", { name: "Odłóż: Podlac rosliny" }));
     await user.click(screen.getByRole("button", { name: "Wybierz date" }));
     await user.type(screen.getByLabelText("Wybierz date odlozenia: Podlac rosliny"), "2026-07-12");
     await user.click(screen.getByRole("button", { name: "Zatwierdz odlozenie: Podlac rosliny" }));

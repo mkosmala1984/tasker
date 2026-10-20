@@ -29,13 +29,13 @@ function item(overrides: Partial<TodayTask> = {}): TodayTask {
   };
 }
 
-function renderRow(todayTask: TodayTask) {
+function renderRow(todayTask: TodayTask, expanded = false) {
   render(
     <MantineProvider>
       <TodayTaskRow
         item={todayTask}
         today="2026-07-05"
-        expanded={false}
+        expanded={expanded}
         onToggleExpanded={vi.fn()}
         onComplete={vi.fn()}
         onPostponeToDate={vi.fn()}
@@ -47,15 +47,15 @@ function renderRow(todayTask: TodayTask) {
 }
 
 describe("TodayTaskRow", () => {
-  it("shows the latest completion date without the count when details are collapsed", () => {
+  it("hides the latest completion date when details are collapsed", () => {
     renderRow(item({ lastCompletedDate: "2026-07-04", completionCount: 2 }));
 
-    expect(screen.getByText("Ostatnio wykonane: 2026-07-04")).toBeInTheDocument();
+    expect(screen.queryByText(/2026-07-04/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Wykonano/)).not.toBeInTheDocument();
   });
 
-  it("shows that a task has not been completed yet", () => {
-    renderRow(item());
+  it("shows that a task has not been completed yet in its details", () => {
+    renderRow(item(), true);
 
     expect(screen.getByText("Jeszcze nie wykonano")).toBeInTheDocument();
     expect(screen.queryByText(/Wykonano: 0 razy/)).not.toBeInTheDocument();

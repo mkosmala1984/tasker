@@ -27,6 +27,10 @@ export function TodayTaskDetailsPanel({ item }: Props) {
           </Badge>
         </Grid.Col>
         <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Text className="today-task-detail-label" fw={500}>Ostatnio wykonane</Text>
+          <Text className="today-task-detail-value">{item.lastCompletedDate ?? "Jeszcze nie wykonano"}</Text>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
           <Text className="today-task-detail-label" fw={500}>Kategoria</Text>
           <Text className="today-task-detail-value">{item.category.name}</Text>
         </Grid.Col>

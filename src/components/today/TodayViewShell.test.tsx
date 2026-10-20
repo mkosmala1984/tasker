@@ -45,7 +45,7 @@ const activeTasks = [
   todayTask({ id: "task-home-c", title: "Gamma dom", categoryId: "cat-home", categoryName: "Dom" })
 ];
 
-function renderView() {
+function renderView(overrides: Partial<React.ComponentProps<typeof TodayViewShell>> = {}) {
   return render(
     <MantineProvider>
       <TodayViewShell
@@ -58,11 +58,13 @@ function renderView() {
           { id: "cat-work", name: "Praca", color: "#228be6" },
           { id: "cat-empty", name: "Pusta", color: "#868e96" }
         ]}
+        assignees={[{ id: "person-ola", name: "Ola" }]}
         onAdd={vi.fn()}
         onComplete={vi.fn()}
         onPostponeToDate={vi.fn()}
         onEdit={vi.fn()}
         onDeactivate={vi.fn()}
+        {...overrides}
       />
     </MantineProvider>
   );
@@ -71,6 +73,52 @@ function renderView() {
 describe("TodayViewShell layout", () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  it("filters both layouts and completed tasks by any selected configured person, including none", async () => {
+    const user = userEvent.setup();
+    const janTask = {
+      ...activeTasks[1],
+      task: { ...activeTasks[1].task, assigneeId: "person-jan" },
+      assignee: { id: "person-jan", name: "Jan" }
+    };
+    renderView({
+      assignees: [activeTasks[0].assignee, janTask.assignee, { id: "person-ania", name: "Ania" }],
+      activeTasks: [activeTasks[0], janTask],
+      completedToday: [
+        { ...activeTasks[2], task: { ...activeTasks[2].task, title: "Wykonane Oli" } },
+        { ...janTask, task: { ...janTask.task, id: "done-jan", title: "Wykonane Jana" } }
+      ]
+    });
+    const filters = screen.getByRole("group", { name: "Filtr osób" });
+    expect(within(filters).getAllByRole("button", { pressed: true })).toHaveLength(3);
+    expect(within(filters).getAllByRole("button")).toHaveLength(3);
+    await user.click(screen.getByRole("button", { name: "Wykonane dzisiaj (2)" }));
+
+    await user.click(within(filters).getByRole("button", { name: "Ola" }));
+    expect(screen.queryByText("Alfa dom")).not.toBeInTheDocument();
+    expect(screen.getByText("Beta praca")).toBeInTheDocument();
+    expect(screen.queryByText("Wykonane Oli")).not.toBeInTheDocument();
+    expect(screen.getByText("Wykonane Jana")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Kategoria: Dom" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Lista" }));
+    expect(screen.getByText("Beta praca")).toBeInTheDocument();
+    expect(screen.queryByText("Alfa dom")).not.toBeInTheDocument();
+    await user.click(within(filters).getByRole("button", { name: "Jan" }));
+    expect(screen.queryByText("Beta praca")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Brak zadań dla wybranych osób.");
+    await user.click(within(filters).getByRole("button", { name: "Ania" }));
+    expect(within(filters).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Wykonane dzisiaj (0)" })).toBeInTheDocument();
+
+    await user.click(within(filters).getByRole("button", { name: "Ola" }));
+    await user.click(within(filters).getByRole("button", { name: "Jan" }));
+    await user.click(within(filters).getByRole("button", { name: "Ania" }));
+    expect(screen.getByText("Alfa dom")).toBeInTheDocument();
+    expect(screen.getByText("Beta praca")).toBeInTheDocument();
+    expect(screen.getByText("Wykonane Oli")).toBeInTheDocument();
+    expect(screen.getByText("Wykonane Jana")).toBeInTheDocument();
   });
 
   it("shows category columns by default and preserves task order inside each column", () => {

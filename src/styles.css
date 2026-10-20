@@ -89,7 +89,8 @@ button, input, select { font: inherit; }
 .app-frame:has(.today-view) > .mantine-Stack-root > :not(.today-surface) { flex-shrink: 0; }
 .today-surface, .today-surface > .mantine-Stack-root, .today-view { flex: 1; min-height: 0; min-width: 0; }
 .today-surface { display: flex; flex-direction: column; }
-.today-layout-switch { flex-shrink: 0; }
+.today-toolbar, .today-layout-switch { flex-shrink: 0; }
+.today-assignee-filter { margin-left: auto; }
 .today-scroll-area { flex: 1; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .today-scroll-area > .mantine-Stack-root { min-width: 0; }
 .top-menu { display: flex; align-items: center; gap: 18px; min-height: 72px; padding: 0 2px 0; overflow-x: auto; scrollbar-width: none; }

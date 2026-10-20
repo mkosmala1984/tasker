@@ -15,8 +15,6 @@ type Props = {
 };
 
 export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComplete, onPostponeToDate }: Props) {
-  const completionText = item.lastCompletedDate ? `Ostatnio wykonane: ${item.lastCompletedDate}` : "Jeszcze nie wykonano";
-
   return (
     <Paper className="today-task-row" component="article" withBorder>
       <Stack gap="sm">
@@ -26,9 +24,6 @@ export function TodayTaskRow({ item, today, expanded, onToggleExpanded, onComple
             <Text className="today-task-title" fw={600}>
               <span className="today-task-color" style={{ backgroundColor: item.category.color }} aria-hidden="true" />
               <span>{item.task.title}</span>
-            </Text>
-            <Text className="today-task-meta">
-              {completionText}
             </Text>
           </Stack>
           <Group className="today-task-actions" gap={4} align="center" wrap="nowrap">

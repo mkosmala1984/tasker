@@ -25,8 +25,8 @@ export function TodayPostponeMenu({ item, today, onPostponeToDate }: Props) {
     <div className="today-postpone-menu">
       <Popover opened={menuOpen} onChange={setMenuOpen} position="bottom-end" withinPortal trapFocus returnFocus radius="md">
       <Popover.Target>
-      <Button type="button" variant="default" aria-label={`Odloz: ${item.task.title}`} onClick={() => setMenuOpen((value) => !value)}>
-        Odloz
+      <Button type="button" variant="default" aria-label={`Odłóż: ${item.task.title}`} onClick={() => setMenuOpen((value) => !value)}>
+        Odłóż
       </Button>
       </Popover.Target>
         <Popover.Dropdown className="today-postpone-panel" p="xs">
