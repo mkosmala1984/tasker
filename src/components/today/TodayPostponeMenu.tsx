@@ -1,4 +1,4 @@
-import { Button, Popover, Stack, TextInput } from "@mantine/core";
+import { ActionIcon, Button, Popover, Stack, TextInput } from "@mantine/core";
 import { useState } from "react";
 import { addDays } from "../../domain/dates";
 import type { TodayTask } from "../../domain/types";
@@ -25,9 +25,12 @@ export function TodayPostponeMenu({ item, today, onPostponeToDate }: Props) {
     <div className="today-postpone-menu">
       <Popover opened={menuOpen} onChange={setMenuOpen} position="bottom-end" withinPortal trapFocus returnFocus radius="md">
       <Popover.Target>
-      <Button type="button" variant="default" aria-label={`Odłóż: ${item.task.title}`} onClick={() => setMenuOpen((value) => !value)}>
-        Odłóż
-      </Button>
+      <ActionIcon size={32} type="button" variant="subtle" color="var(--color-success)" title="Odłóż" aria-label={`Odłóż: ${item.task.title}`} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
+        <svg className="today-postpone-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6.4 2.6Q12 1.9 17.7 2.4M6.1 21.4Q12 22.1 17.9 21.5" />
+          <path d="M7.1 2.8C6.4 7 8.8 8.9 11.8 11.7C15.8 14 17 17.4 16.8 21M17 2.8C17.3 6.6 15.4 9 12.1 11.9C8.8 14.3 6.7 17.4 7.1 21" strokeWidth="1.15" />
+        </svg>
+      </ActionIcon>
       </Popover.Target>
         <Popover.Dropdown className="today-postpone-panel" p="xs">
           <Stack gap="xs">

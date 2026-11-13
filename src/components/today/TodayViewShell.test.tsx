@@ -75,6 +75,39 @@ describe("TodayViewShell layout", () => {
     localStorage.clear();
   });
 
+  it("filters daily tasks in both layouts and combines the daily filter with people", async () => {
+    const user = userEvent.setup();
+    const daily: TodayTask = {
+      ...activeTasks[0],
+      task: { ...activeTasks[0].task, schedule: { mode: "recurring", startDate: "2026-07-05", recurrence: { type: "daily" } } }
+    };
+    renderView({
+      activeTasks: [daily, activeTasks[1]],
+      completedToday: [
+        { ...daily, task: { ...daily.task, id: "done-daily", title: "Codzienne wykonane" } },
+        { ...activeTasks[1], task: { ...activeTasks[1].task, id: "done-once", title: "Jednorazowe wykonane" } }
+      ]
+    });
+
+    await user.click(screen.getByRole("button", { name: "Codzienne", pressed: false }));
+    expect(screen.getByText("Alfa dom")).toBeInTheDocument();
+    expect(screen.queryByText("Beta praca")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wykonane dzisiaj (1)" }));
+    expect(screen.getByText("Codzienne wykonane")).toBeInTheDocument();
+    expect(screen.queryByText("Jednorazowe wykonane")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Lista" }));
+    expect(screen.getByText("Alfa dom")).toBeInTheDocument();
+    expect(screen.queryByText("Beta praca")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ola" }));
+    expect(screen.queryByText("Alfa dom")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Brak codziennych zadań dla wybranych osób.");
+    await user.click(screen.getByRole("button", { name: "Ola" }));
+    await user.click(screen.getByRole("button", { name: "Codzienne", pressed: true }));
+    expect(screen.getByText("Beta praca")).toBeInTheDocument();
+    expect(screen.getByText("Jednorazowe wykonane")).toBeInTheDocument();
+  });
+
   it("filters both layouts and completed tasks by any selected configured person, including none", async () => {
     const user = userEvent.setup();
     const janTask = {

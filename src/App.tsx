@@ -1,4 +1,4 @@
-import { Alert, Button, Container, Paper, Stack, Title } from "@mantine/core";
+import { ActionIcon, Alert, Button, Container, Paper, Stack, Title, Tooltip } from "@mantine/core";
 import { useEffect } from "react";
 import { CategoryManager } from "./components/CategoryManager";
 import { CalendarView } from "./components/calendar/CalendarView";
@@ -117,23 +117,24 @@ export default function App({ now = new Date() }: Props) {
   return (
     <Container className="app-shell app-frame" size="xl" data-theme="olive-canvas">
       <Stack gap="lg">
-        <nav className="top-menu" aria-label="Główna nawigacja">
+        <nav className="side-menu" aria-label="Główna nawigacja">
           {([
             ["today", "Dzisiaj"], ["tasks", "Zadania"], ["calendar", "Kalendarz"], ["categories", "Kategorie"],
             ["statistics", "Statystyki"],
             ["settings", "Konfiguracja"], ["history", "Historia"], ["data", "Dane"],
           ] as const).map(([menuView, label]) => (
-            <Button
-              key={menuView}
-              className="top-menu-item"
+            <Tooltip key={menuView} label={label} position="right" withinPortal events={{ hover: true, focus: true, touch: false }}>
+            <ActionIcon
+              className="side-menu-item"
+              aria-label={label}
+              aria-current={view === menuView ? "page" : undefined}
               data-active={view === menuView || undefined}
               variant="subtle"
               onClick={() => setView(menuView)}
-              leftSection={<MenuIcon name={menuView} />}
-              h={'20px'}
             >
-              {label}
-            </Button>
+              <MenuIcon name={menuView} />
+            </ActionIcon>
+            </Tooltip>
           ))}
         </nav>
         {!ready ? <Alert title="Otwieranie danych">Poczekaj na otwarcie lokalnej bazy danych.</Alert> : null}

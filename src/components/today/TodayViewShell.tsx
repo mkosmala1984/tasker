@@ -48,9 +48,18 @@ export function TodayViewShell(props: TodayViewShellProps) {
   const [layout, setLayout] = useState<TodayLayout>(loadTodayLayout);
   const [columnOrder, setColumnOrder] = useState<string[]>(loadColumnOrder);
   const [excludedAssigneeIds, setExcludedAssigneeIds] = useState<string[]>([]);
+  const [dailyOnly, setDailyOnly] = useState(false);
   const selectedAssigneeIds = new Set(props.assignees.filter((assignee) => !excludedAssigneeIds.includes(assignee.id)).map((assignee) => assignee.id));
-  const activeTasks = props.activeTasks.filter((item) => selectedAssigneeIds.has(item.task.assigneeId));
-  const completedToday = props.completedToday.filter((item) => selectedAssigneeIds.has(item.task.assigneeId));
+  function matchesFilters(item: TodayTask) {
+    const schedule = item.task.schedule;
+    const daily = schedule.mode === "recurring" && (
+      schedule.recurrence.type === "daily" ||
+      (schedule.recurrence.type === "everyNDays" && schedule.recurrence.intervalDays === 1)
+    );
+    return selectedAssigneeIds.has(item.task.assigneeId) && (!dailyOnly || daily);
+  }
+  const activeTasks = props.activeTasks.filter(matchesFilters);
+  const completedToday = props.completedToday.filter(matchesFilters);
   const categoriesById = new Map(props.categories.map((category) => [category.id, category]));
   const orderedIds = [...new Set([...columnOrder, ...categoriesById.keys()])].filter((id) => categoriesById.has(id));
   const orderedCategories = orderedIds.map((id) => categoriesById.get(id)!);
@@ -93,6 +102,15 @@ export function TodayViewShell(props: TodayViewShellProps) {
             Lista
           </Button>
         </Group>
+        <Group className="today-filters" justify="flex-end" gap="xs">
+          <Button
+            type="button"
+            variant={dailyOnly ? "filled" : "default"}
+            aria-pressed={dailyOnly}
+            onClick={() => setDailyOnly((value) => !value)}
+          >
+            Codzienne
+          </Button>
         <Group className="today-assignee-filter" justify="flex-end" gap="xs" role="group" aria-label="Filtr osób">
           {props.assignees.map((assignee) => {
             const selected = !excludedAssigneeIds.includes(assignee.id);
@@ -111,11 +129,12 @@ export function TodayViewShell(props: TodayViewShellProps) {
             );
           })}
         </Group>
+        </Group>
       </Group>
       <div className="today-scroll-area" role="region" aria-label="Przewijany widok zadań" tabIndex={0}>
         <Stack gap="lg">
-          {activeTasks.length === 0 && selectedAssigneeIds.size < props.assignees.length ? (
-            <Text role="status" c="dimmed">Brak zadań dla wybranych osób.</Text>
+          {activeTasks.length === 0 && (dailyOnly || selectedAssigneeIds.size < props.assignees.length) ? (
+            <Text role="status" c="dimmed">{dailyOnly ? "Brak codziennych zadań dla wybranych osób." : "Brak zadań dla wybranych osób."}</Text>
           ) : layout === "columns" && activeTasks.length > 0 ? (
             <TodayActiveColumns
               today={props.today}
