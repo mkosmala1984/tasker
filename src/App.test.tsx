@@ -105,6 +105,19 @@ async function seedState(state: unknown) {
 }
 
 describe("App", () => {
+  it("applies a saved background to the board and opens its settings", async () => {
+    renderApp();
+    const image = { name: "board.png", dataUrl: "data:image/png;base64,aGVsbG8=" };
+    await act(() => useTaskerStore.getState().setBoardBackground(image));
+    await waitFor(() => expect((document.querySelector(".today-surface") as HTMLElement)?.style.backgroundImage).toBe('url("blob:test")'));
+    await userEvent.click(screen.getByRole("button", { name: "Zadania" }));
+    expect((document.querySelector(".tasks-surface") as HTMLElement)?.style.backgroundImage).toBe('url("blob:test")');
+    await userEvent.click(screen.getByRole("button", { name: "Konfiguracja" }));
+    expect(screen.getByAltText("Podgląd tła tablicy")).toHaveAttribute("src", image.dataUrl);
+    await userEvent.click(screen.getByRole("button", { name: "Przywróć domyślne tło" }));
+    await userEvent.click(screen.getByRole("button", { name: "Dzisiaj" }));
+    await waitFor(() => expect((document.querySelector(".today-surface") as HTMLElement)?.style.backgroundImage ?? "").toBe(""));
+  });
   beforeEach(async () => {
     localStorage.clear();
     await resetTaskerStore();

@@ -27,6 +27,7 @@ function read(state: AppState, change: Change): unknown {
   return change.field === "$entity" ? entity : entity?.[change.field];
 }
 export function applyChange(state: AppState, change: Change, value: unknown) {
+  if (change.collection === "backgrounds") state.backgrounds ??= [];
   const list = entities(state, change.collection);
   if (change.field === "$order") {
     (value as string[]).forEach((id, i) => {

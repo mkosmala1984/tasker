@@ -100,8 +100,17 @@ button, input, select { font: inherit; }
 .side-menu-item svg { color: currentColor; }
 .side-menu-item:hover { background: var(--color-bg-surface); color: var(--color-accent); }
 .side-menu-item[data-active="true"] { background: var(--color-bg-surface); border-color: var(--color-border-subtle); color: var(--color-accent); }
-.today-surface { background: var(--color-bg-surface); border-radius: var(--radius-lg);}
+.today-surface, .tasks-surface {
+  background-color: var(--color-bg-surface);
+  background-image: url("./assets/pastel-watercolor-beach-at-dawn.png");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-lg);
+}
 .today-stack, .today-section { display: grid; gap: var(--space-6); }
+.tasks-surface { min-height: calc(100dvh - 48px); }
+.background-preview { display: block; width: 100%; max-width: 480px; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
 .today-summary-title { font-size: 48px; line-height: 1.05; font-weight: 700; }
 .today-summary-date { color: var(--color-text-secondary); font-size: 16px; }
 .today-count { background: var(--color-accent-soft); color: var(--color-accent); }

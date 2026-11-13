@@ -9,6 +9,7 @@ import {
 } from "../storage/taskerBackup";
 import type { RemoteSyncStatus } from "../state/remoteSync";
 import type { SyncConflict } from "../domain/syncOperations";
+import { backgroundValueLabel } from "../domain/boardBackground";
 
 type Props = {
   state: AppState;
@@ -163,10 +164,10 @@ export function DataTransferView({
         <Alert
           key={`${conflict.operationId}:${conflict.id}:${conflict.field}`}
           color="yellow"
-          title={`Konflikt: ${state.tasks.find((t) => t.id === conflict.id)?.title ?? conflict.id} — ${conflict.field}`}
+          title={conflict.collection === "backgrounds" ? "Konflikt: Tło tablicy" : `Konflikt: ${state.tasks.find((t) => t.id === conflict.id)?.title ?? conflict.id} — ${conflict.field}`}
         >
           <Stack gap="xs">
-            {conflict.field === "$entity" && conflict.local ? (
+            {conflict.collection !== "backgrounds" && conflict.field === "$entity" && conflict.local ? (
               <Text>
                 Przywrócenie mojej wersji przywróci też brakujące kategorie,
                 osoby, typy i priorytety potrzebne temu zadaniu.
@@ -179,10 +180,10 @@ export function DataTransferView({
               </Text>
             ) : null}
             <Text>
-              Moja wartość: {JSON.stringify(conflict.local) ?? "usunięto"}
+              Moja wartość: {conflict.collection === "backgrounds" ? backgroundValueLabel(conflict.local) : JSON.stringify(conflict.local) ?? "usunięto"}
             </Text>
             <Text>
-              Zdalna wartość: {JSON.stringify(conflict.remote) ?? "usunięto"}
+              Zdalna wartość: {conflict.collection === "backgrounds" ? backgroundValueLabel(conflict.remote) : JSON.stringify(conflict.remote) ?? "usunięto"}
             </Text>
             <Group>
               <Button

@@ -1,5 +1,6 @@
 import type { AppState } from "./types";
 import { collections } from "./syncOperations";
+import { isBackgroundImage } from "./boardBackground";
 
 function record(x: unknown): x is Record<string, unknown> {
   return !!x && typeof x === "object" && !Array.isArray(x);
@@ -21,6 +22,7 @@ function timestamp(x: unknown) {
 export function isValidState(x: unknown): x is AppState {
   if (!record(x)) return false;
   for (const collection of collections) {
+    if (collection === "backgrounds" && x.backgrounds === undefined) continue;
     const items = x[collection];
     if (
       !Array.isArray(items) ||
@@ -30,6 +32,9 @@ export function isValidState(x: unknown): x is AppState {
       return false;
   }
   const state = x as unknown as AppState;
+  if (state.backgrounds && (state.backgrounds.length > 1 || !state.backgrounds.every(
+    (v) => v.id === "today" && (v.image === null || isBackgroundImage(v.image)),
+  ))) return false;
   if (
     !state.categories.every((v) => text(v.name) && text(v.color)) ||
     !state.assignees.every((v) => text(v.name))

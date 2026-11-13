@@ -21,6 +21,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("durable tasker store", () => {
+  it("persists background bytes across sessions and journals upload and reset", async () => {
+    const name = crypto.randomUUID();
+    const a = await session(name);
+    const image = { name: "board.png", dataUrl: "data:image/png;base64,aGVsbG8=" };
+    await a.getState().setBoardBackground(image);
+    const b = await session(name);
+    expect(b.getState().state.backgrounds?.[0].image).toEqual(image);
+    expect(b.getState().pendingCount).toBe(1);
+    await b.getState().setBoardBackground(null);
+    const c = await session(name);
+    expect(c.getState().state.backgrounds?.[0].image).toBeNull();
+    expect(c.getState().pendingCount).toBe(2);
+  });
   it("persists person edits across sessions and journals them for synchronization", async () => {
     const name = crypto.randomUUID();
     const a = await session(name);

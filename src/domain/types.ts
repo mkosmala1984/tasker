@@ -66,6 +66,7 @@ export type Postponement = {
 };
 
 export type AppState = {
+  backgrounds?: import("./boardBackground").BoardBackground[];
   tasks: Task[];
   categories: Category[];
   assignees: Assignee[];

@@ -1,5 +1,7 @@
 import { ActionIcon, Alert, Button, Container, Paper, Stack, Title, Tooltip } from "@mantine/core";
 import { useEffect } from "react";
+import { BackgroundSettings } from "./components/BackgroundSettings";
+import { useBoardBackgroundUrl } from "./components/useBoardBackgroundUrl";
 import { CategoryManager } from "./components/CategoryManager";
 import { CalendarView } from "./components/calendar/CalendarView";
 import { DataTransferView } from "./components/DataTransferView";
@@ -46,6 +48,9 @@ function MenuIcon({ name }: { name: MenuIconName }) {
 
 export default function App({ now = new Date() }: Props) {
   const state = useTaskerStore((store) => store.state);
+  const setBoardBackground = useTaskerStore((store) => store.setBoardBackground);
+  const backgroundImage = state.backgrounds?.[0]?.image ?? null;
+  const backgroundUrl = useBoardBackgroundUrl(backgroundImage);
   const ready = useTaskerStore((store) => store.ready);
   const conflicts = useTaskerStore((store) => store.conflicts);
   const resolveConflict = useTaskerStore((store) => store.resolveConflict);
@@ -142,7 +147,8 @@ export default function App({ now = new Date() }: Props) {
         {conflicts.length && view !== "data" ? <Alert color="yellow" title="Konflikt zmian"><Button onClick={() => setView("data")}>Rozstrzygnij zmiany ({conflicts.length})</Button></Alert> : null}
 
         {view === "today" ? (
-          <Paper className="today-surface" withBorder p="lg" radius="md">
+          <Paper className="today-surface" withBorder p="lg" radius="md"
+            style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}>
             <Stack gap="md">
               {storageError ? (
                 <Alert color="yellow" title="Problem z lokalnymi danymi">
@@ -166,7 +172,7 @@ export default function App({ now = new Date() }: Props) {
             </Stack>
           </Paper>
         ) : null}
-        {view === "tasks" ? <TasksModuleView today={today} /> : null}
+        {view === "tasks" ? <TasksModuleView today={today} backgroundUrl={backgroundUrl} /> : null}
         {view === "statistics" ? (
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <StatisticsView state={state} />
@@ -184,6 +190,7 @@ export default function App({ now = new Date() }: Props) {
           <Paper withBorder p="lg" radius="md" shadow="xs">
             <Stack gap="xl">
               <Title order={2}>Konfiguracja zadan</Title>
+              <BackgroundSettings image={backgroundImage} onSave={setBoardBackground} />
               <AssigneeManager
                 assignees={state.assignees}
                 referencedIds={new Set(state.tasks.map((task) => task.assigneeId))}

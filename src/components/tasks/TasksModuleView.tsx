@@ -6,9 +6,10 @@ import { TaskListView } from "./TaskListView";
 
 type Props = {
   today: string;
+  backgroundUrl?: string;
 };
 
-export function TasksModuleView({ today }: Props) {
+export function TasksModuleView({ today, backgroundUrl }: Props) {
   const state = useTaskerStore((store) => store.state);
   const taskEditorTaskId = useTaskerStore((store) => store.taskEditorTaskId);
   const taskEditorInitialDate = useTaskerStore((store) => store.taskEditorInitialDate);
@@ -30,7 +31,9 @@ export function TasksModuleView({ today }: Props) {
   }
 
   return (
-    <Paper withBorder p={{ base: "sm", sm: "lg" }} radius="md" shadow="xs">
+    <Paper withBorder p={{ base: "sm", sm: "lg" }} radius="md" shadow="xs"
+      className={taskEditorTaskId === undefined ? "tasks-surface" : undefined}
+      style={taskEditorTaskId === undefined && backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}>
       {taskEditorTaskId !== undefined ? (
         <TaskEditorView
           key={taskEditorTaskId ?? "create"}

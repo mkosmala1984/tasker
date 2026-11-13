@@ -8,6 +8,8 @@ Tasker deploys to [mkosmala1984.github.io/tasker](https://mkosmala1984.github.io
 
 ## Tigris synchronization
 
+In **Konfiguracja → Tło tablicy**, upload a PNG, JPEG or WebP image up to 5 MB. The app validates the image and saves its contents in IndexedDB before confirming the change. Custom backgrounds synchronize with the dataset through Tigris and are included in exports and imports. **Przywróć domyślne tło** restores the beach background and synchronizes that choice. Concurrent background edits appear in **Dane** for resolution. Image contents increase the size of the synchronized document.
+
 Tigris is the only optional synchronization provider. Create a dedicated private bucket with permission to read and write the Tasker object. In **Dane**, enter the bucket, object key (default `tasker.json`), access-key ID, and secret access key. Credentials remain in this browser's localStorage. Use a dedicated key with minimal permissions.
 
 Browser access requires CORS (cross-origin request rules). For example:

@@ -34,6 +34,16 @@ function renderView(props: Partial<typeof baseProps> = {}) {
 }
 
 describe("DataTransferView", () => {
+  it("shows image names rather than encoded bytes for a background conflict", () => {
+    const local = { id: "today", image: { name: "local.png", dataUrl: "data:image/png;base64,aGVsbG8=" } };
+    const remote = { id: "today", image: { name: "remote.png", dataUrl: "data:image/png;base64,d29ybGQ=" } };
+    const view = renderView({ conflicts: [{ collection: "backgrounds", id: "today", field: "$entity", operationId: "op", before: undefined, after: local, local, remote }] });
+    expect(screen.getByText("Konflikt: Tło tablicy")).toBeInTheDocument();
+    expect(screen.getByText("Moja wartość: local.png")).toBeInTheDocument();
+    expect(screen.getByText("Zdalna wartość: remote.png")).toBeInTheDocument();
+    expect(view.container.textContent).not.toContain("base64");
+    expect(screen.queryByText(/Przywrócenie mojej wersji/)).not.toBeInTheDocument();
+  });
   it("submits trimmed Tigris credentials, masks the secret, and warns about local secrets", async () => {
     const user = userEvent.setup();
     const onConfigureTigris = vi.fn();

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { setBoardBackground, type BoardBackgroundImage } from "../domain/boardBackground";
 import {
   addAssignee as addAssigneeDomain,
   updateAssignee as updateAssigneeDomain,
@@ -68,6 +69,7 @@ function datasetFor(c: TigrisCredentials) {
   return JSON.stringify(["tigris", c.bucket, c.objectKey]);
 }
 export type TaskerStore = {
+  setBoardBackground: (image: BoardBackgroundImage | null) => Promise<void>;
   state: AppState;
   storageError?: string;
   ready: boolean;
@@ -222,6 +224,7 @@ export function createTaskerStore(initialJournal = new SyncJournal()) {
     ) => mutate((s) => postponeTask(s, taskId, from, to, now.toISOString()));
     return {
       state: initial.state,
+      setBoardBackground: (image) => mutate((s) => setBoardBackground(s, image)),
       storageError: initial.error,
       ready: false,
       conflicts: [],

@@ -11,6 +11,7 @@ import {
   type WriteCondition,
 } from "../storage/syncEnvelope";
 import { createRemoteSyncController } from "./remoteSync";
+import { setBoardBackground } from "../domain/boardBackground";
 function service() {
   let document: RemoteDocument = {
     envelope: {
@@ -64,6 +65,49 @@ async function edit(journal: SyncJournal, id: string) {
   await journal.append("remote", createOperation(base, next, id));
 }
 describe("journal sync", () => {
+  it("transfers background bytes between computers and synchronizes reset", async () => {
+    const storage = service(), a = await client(storage), b = await client(storage);
+    try {
+      const image = { name: "board.png", dataUrl: "data:image/png;base64,aGVsbG8=" };
+      const before = (await a.journal.read("remote")).state;
+      await a.journal.append("remote", createOperation(before, setBoardBackground(before, image), "a"));
+      await a.controller.syncNow();
+      await b.controller.syncNow();
+      expect((await b.journal.read("remote")).state.backgrounds?.[0].image).toEqual(image);
+      const base = (await b.journal.read("remote")).state;
+      await b.journal.append("remote", createOperation(base, setBoardBackground(base, null), "b"));
+      await b.controller.syncNow();
+      await a.controller.syncNow();
+      expect((await a.journal.read("remote")).state.backgrounds?.[0].image).toBeNull();
+      expect((await a.journal.read("remote")).operations).toEqual([]);
+    } finally {
+      a.controller.stop(); b.controller.stop();
+    }
+  });
+
+  it.each(["local", "remote"] as const)("resolves concurrent first background uploads using the %s version", async (choice) => {
+    const storage = service(), a = await client(storage), b = await client(storage);
+    try {
+      const first = { name: "first.png", dataUrl: "data:image/png;base64,aGVsbG8=" };
+      const second = { name: "second.png", dataUrl: "data:image/png;base64,d29ybGQ=" };
+      for (const [computer, image, id] of [[a, first, "a"], [b, second, "b"]] as const) {
+        const base = (await computer.journal.read("remote")).state;
+        await computer.journal.append("remote", createOperation(base, setBoardBackground(base, image), id));
+      }
+      await a.controller.syncNow();
+      await b.controller.syncNow();
+      const record = await b.journal.read("remote");
+      expect(record.conflicts).toHaveLength(1);
+      const conflict = record.conflicts[0];
+      await b.journal.resolve("remote", conflict.operationId, conflict.field, conflict.id, choice);
+      await b.controller.syncNow();
+      await a.controller.syncNow();
+      expect((await a.journal.read("remote")).state.backgrounds?.[0].image).toEqual(choice === "local" ? second : first);
+      expect((await b.journal.read("remote")).conflicts).toEqual([]);
+    } finally {
+      a.controller.stop(); b.controller.stop();
+    }
+  });
   it("retries network failures and suspends permission failures until reconfiguration", async () => {
     const storage = service(),
       a = await client(storage);

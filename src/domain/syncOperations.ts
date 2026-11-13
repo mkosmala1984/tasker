@@ -1,6 +1,7 @@
 import type { AppState } from "./types";
 
 export const collections = [
+  "backgrounds",
   "categories",
   "assignees",
   "taskTypes",
@@ -60,7 +61,7 @@ export function equal(a: unknown, b: unknown): boolean {
   );
 }
 export function entities(state: AppState, collection: Collection): Entity[] {
-  return state[collection] as unknown as Entity[];
+  return (state[collection] ?? []) as unknown as Entity[];
 }
 export function order(state: AppState, collection: Collection): string[] {
   return [...entities(state, collection)]
@@ -81,7 +82,7 @@ export function createOperation(
     changes: [],
   };
   operation.references = Object.fromEntries(
-    collections.map((c) => [
+    collections.filter((c) => c !== "backgrounds").map((c) => [
       c,
       structuredClone(entities(before, c as Collection)),
     ]),
